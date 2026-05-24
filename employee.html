@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Trip Fly BD Employee Attendance Panel" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Employee Panel | Trip Fly BD Attendance</title>
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <!-- html5-qrcode -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body class="employee-page">
+
+  <!-- ═══════════════════════════════════════════
+       ANIMATED BACKGROUND
+  ═══════════════════════════════════════════ -->
+  <div class="emp-bg" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb--1" style="opacity:0.25"></div>
+    <div class="bg-orb bg-orb--3" style="opacity:0.2"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       EMPLOYEE TOP BAR
+  ═══════════════════════════════════════════ -->
+  <header class="emp-topbar">
+    <div class="emp-topbar__brand">
+      <img src="assets/images/logo.png" alt="Logo"
+           style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 6px rgba(212,175,55,0.4))" />
+      <span>Trip Fly BD</span>
+    </div>
+    <div class="emp-topbar__right">
+      <div class="emp-topbar__clock" id="empClock">--:--</div>
+      <button class="emp-topbar__logout" onclick="empLogout()" aria-label="Logout" title="Sign Out">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════
+       MAIN CONTENT
+  ═══════════════════════════════════════════ -->
+  <main class="emp-main">
+
+    <!-- ─── EMPLOYEE PROFILE CARD ─── -->
+    <div class="emp-profile-card glass-card" id="empProfileCard">
+      <div class="emp-profile-card__avatar">
+        <i class="fa-solid fa-user-tie"></i>
+      </div>
+      <div class="emp-profile-card__info">
+        <h2 class="emp-profile-card__name" id="empProfileName">Loading…</h2>
+        <p class="emp-profile-card__dept" id="empProfileDept">—</p>
+        <p class="emp-profile-card__id" id="empProfileId">—</p>
+      </div>
+      <div class="emp-profile-card__date" id="empProfileDate">—</div>
+    </div>
+
+    <!-- ─── TODAY'S STATUS BANNER ─── -->
+    <div class="today-status-banner glass-card" id="todayStatusBanner">
+      <div class="today-status-banner__icon" id="statusBannerIcon">
+        <i class="fa-solid fa-circle-question"></i>
+      </div>
+      <div class="today-status-banner__body">
+        <span class="today-status-banner__label">Today's Status</span>
+        <span class="today-status-banner__value" id="statusBannerValue">Checking…</span>
+      </div>
+      <div class="today-status-banner__times" id="statusBannerTimes"></div>
+    </div>
+
+    <!-- ─── BOTTOM NAV TABS ─── -->
+    <nav class="emp-tab-nav" role="tablist" aria-label="Employee navigation">
+      <button class="emp-tab active" role="tab" aria-selected="true" data-tab="scanner" onclick="switchEmpTab('scanner', this)">
+        <i class="fa-solid fa-qrcode"></i>
+        <span>Scan QR</span>
+      </button>
+      <button class="emp-tab" role="tab" aria-selected="false" data-tab="history" onclick="switchEmpTab('history', this)">
+        <i class="fa-solid fa-calendar-days"></i>
+        <span>History</span>
+      </button>
+      <button class="emp-tab" role="tab" aria-selected="false" data-tab="profile" onclick="switchEmpTab('profile', this)">
+        <i class="fa-solid fa-user"></i>
+        <span>Profile</span>
+      </button>
+    </nav>
+
+    <!-- ═══════════════════════════════
+         TAB: SCANNER
+    ═══════════════════════════════ -->
+    <div class="emp-tab-panel active" id="tab-scanner">
+
+      <!-- Instructions -->
+      <div class="scanner-instructions glass-card" id="scannerInstructions">
+        <div class="scanner-instructions__icon" id="scanInstructionIcon">
+          <i class="fa-solid fa-qrcode"></i>
+        </div>
+        <h3 id="scanInstructionTitle">QR দিয়ে Attendance</h3>
+        <p id="scanInstructionDesc">নিচের বাটন চাপুন এবং অফিসের QR code scan করুন।</p>
+        <ul class="scanner-steps">
+          <li><i class="fa-solid fa-1 gold-text"></i> সকালে ঢোকার সময় scan করুন → <strong>Check-In</strong></li>
+          <li><i class="fa-solid fa-2 gold-text"></i> বিকেলে বের হওয়ার সময় আবার scan করুন → <strong>Check-Out</strong></li>
+          <li><i class="fa-solid fa-location-dot gold-text"></i> GPS automatically verify হবে</li>
+        </ul>
+      </div>
+
+      <!-- GPS Status indicator -->
+      <div class="gps-status-bar glass-card" id="gpsStatusBar">
+        <div class="gps-status-bar__dot" id="gpsDot"></div>
+        <span class="gps-status-bar__text" id="gpsStatusText">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Requesting GPS…
+        </span>
+        <span class="gps-status-bar__dist" id="gpsDistance"></span>
+      </div>
+
+      <!-- Already checked in notice -->
+      <div class="already-checkedin glass-card hidden" id="alreadyCheckedIn">
+        <div class="already-checkedin__icon">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div class="already-checkedin__body">
+          <strong>Already Marked Today!</strong>
+          <p>Check-in: <span id="existingCheckIn">—</span> &nbsp;|&nbsp; Status: <span id="existingStatus">—</span></p>
+        </div>
+      </div>
+
+      <!-- Scanner Container -->
+      <div class="scanner-container" id="scannerContainer">
+        <!-- Camera feed rendered here by html5-qrcode -->
+        <div id="qrReaderViewfinder"></div>
+
+        <!-- Scan overlay frame -->
+        <div class="scan-frame" id="scanFrame" aria-hidden="true">
+          <div class="scan-frame__corner scan-frame__corner--tl"></div>
+          <div class="scan-frame__corner scan-frame__corner--tr"></div>
+          <div class="scan-frame__corner scan-frame__corner--bl"></div>
+          <div class="scan-frame__corner scan-frame__corner--br"></div>
+          <div class="scan-line" id="scanLine"></div>
+        </div>
+
+        <p class="scanner-hint" id="scannerHint">
+          <i class="fa-solid fa-camera-rotate"></i>
+          Point camera at the QR code on the office screen
+        </p>
+      </div>
+
+      <!-- Scanner Action Buttons -->
+      <div class="scanner-actions" id="scannerActions">
+        <button class="btn-scanner-start btn-gold" id="startScanBtn" onclick="startQRScan()">
+          <i class="fa-solid fa-camera"></i>
+          <span>Scan QR — Check-In</span>
+        </button>
+        <button class="btn-scanner-stop btn-gold-outline hidden" id="stopScanBtn" onclick="stopQRScan()">
+          <i class="fa-solid fa-stop"></i>
+          <span>Cancel</span>
+        </button>
+      </div>
+
+      <!-- Fallback manual check-out (hidden — only shows if employee somehow can't scan) -->
+      <button class="btn-checkout btn-gold-outline hidden" id="checkoutBtn" onclick="markManualCheckOut()">
+        <i class="fa-solid fa-door-open"></i>
+        অফিস থেকে বের হচ্ছি — Check-Out
+      </button>
+
+    </div><!-- /#tab-scanner -->
+
+    <!-- ═══════════════════════════════
+         TAB: HISTORY
+    ═══════════════════════════════ -->
+    <div class="emp-tab-panel hidden" id="tab-history">
+
+      <div class="section-header" style="padding:0 0 1rem">
+        <h2 class="section-title" style="font-size:1.3rem">
+          <i class="fa-solid fa-calendar-days gold-text"></i>
+          My Attendance History
+        </h2>
+      </div>
+
+      <!-- Month filter -->
+      <div class="glass-card filter-bar filter-bar--compact">
+        <div class="filter-bar__group">
+          <label class="filter-label"><i class="fa-regular fa-calendar"></i> Month</label>
+          <select id="historyMonth" class="filter-input filter-select" onchange="loadHistory()">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+        <div class="filter-bar__actions">
+          <button class="btn-gold" onclick="loadHistory()">
+            <i class="fa-solid fa-rotate"></i> Load
+          </button>
+        </div>
+      </div>
+
+      <!-- Monthly summary mini-stats -->
+      <div class="history-summary" id="historySummary">
+        <div class="history-stat glass-card">
+          <span class="history-stat__num" id="histPresent">—</span>
+          <span class="history-stat__lbl">Present</span>
+        </div>
+        <div class="history-stat glass-card">
+          <span class="history-stat__num history-stat__num--late" id="histLate">—</span>
+          <span class="history-stat__lbl">Late</span>
+        </div>
+        <div class="history-stat glass-card">
+          <span class="history-stat__num history-stat__num--absent" id="histAbsent">—</span>
+          <span class="history-stat__lbl">Absent</span>
+        </div>
+        <div class="history-stat glass-card">
+          <span class="history-stat__num gold-text" id="histRate">—</span>
+          <span class="history-stat__lbl">Rate</span>
+        </div>
+      </div>
+
+      <!-- History cards list -->
+      <div class="history-list" id="historyList">
+        <div class="emp-grid__loading">
+          <i class="fa-solid fa-circle-notch fa-spin gold-text"></i>
+          <span>Loading history…</span>
+        </div>
+      </div>
+
+    </div><!-- /#tab-history -->
+
+    <!-- ═══════════════════════════════
+         TAB: PROFILE
+    ═══════════════════════════════ -->
+    <div class="emp-tab-panel hidden" id="tab-profile">
+
+      <div class="section-header" style="padding:0 0 1rem">
+        <h2 class="section-title" style="font-size:1.3rem">
+          <i class="fa-solid fa-user gold-text"></i>
+          My Profile
+        </h2>
+      </div>
+
+      <!-- Profile Detail Card -->
+      <div class="glass-card profile-detail-card">
+        <div class="profile-detail-card__avatar">
+          <i class="fa-solid fa-user-tie"></i>
+          <div class="profile-detail-card__avatar-ring"></div>
+        </div>
+        <h3 class="profile-detail-card__name" id="profileDetailName">—</h3>
+        <p class="profile-detail-card__dept" id="profileDetailDept">—</p>
+
+        <div class="profile-info-grid">
+          <div class="profile-info-item">
+            <i class="fa-solid fa-id-badge gold-text"></i>
+            <div>
+              <span class="profile-info-label">Employee ID</span>
+              <span class="profile-info-value" id="profileDetailId">—</span>
+            </div>
+          </div>
+          <div class="profile-info-item">
+            <i class="fa-solid fa-envelope gold-text"></i>
+            <div>
+              <span class="profile-info-label">Email</span>
+              <span class="profile-info-value" id="profileDetailEmail">—</span>
+            </div>
+          </div>
+          <div class="profile-info-item">
+            <i class="fa-solid fa-phone gold-text"></i>
+            <div>
+              <span class="profile-info-label">Phone</span>
+              <span class="profile-info-value" id="profileDetailPhone">—</span>
+            </div>
+          </div>
+          <div class="profile-info-item">
+            <i class="fa-solid fa-building gold-text"></i>
+            <div>
+              <span class="profile-info-label">Department</span>
+              <span class="profile-info-value" id="profileDetailDeptFull">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- This month quick stats -->
+      <div class="glass-card profile-month-stats">
+        <h3 class="card-title-sm">
+          <i class="fa-solid fa-chart-pie gold-text"></i>
+          This Month Summary
+        </h3>
+        <div class="profile-month-bars" id="profileMonthBars">
+          <div class="emp-grid__loading">
+            <i class="fa-solid fa-circle-notch fa-spin gold-text"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sign out -->
+      <button class="btn-gold-outline btn-block" style="margin-top:1.5rem" onclick="empLogout()">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        Sign Out
+      </button>
+
+    </div><!-- /#tab-profile -->
+
+  </main><!-- /.emp-main -->
+
+  <!-- ═══════════════════════════════════════════
+       SUCCESS POPUP OVERLAY (Check-In)
+  ═══════════════════════════════════════════ -->
+  <div class="success-overlay" id="successOverlay" role="dialog" aria-modal="true" aria-label="Attendance success" aria-hidden="true">
+    <div class="success-popup glass-card">
+
+      <!-- Animated checkmark -->
+      <div class="success-popup__icon">
+        <svg class="checkmark-svg" viewBox="0 0 52 52" aria-hidden="true">
+          <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none" />
+          <path  class="checkmark-check"  fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+        </svg>
+      </div>
+
+      <h2 class="success-popup__title" id="successTitle">Attendance Marked!</h2>
+
+      <div class="success-popup__details" id="successDetails">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="success-popup__status" id="successStatus">
+        <!-- Status badge injected here -->
+      </div>
+
+      <button class="btn-gold" style="width:100%;margin-top:1.5rem" onclick="closeSuccessPopup()">
+        <i class="fa-solid fa-check"></i> Done
+      </button>
+    </div>
+  </div><!-- /#successOverlay -->
+
+  <!-- ═══════════════════════════════════════════
+       CHECK-OUT SUCCESS POPUP
+  ═══════════════════════════════════════════ -->
+  <div class="success-overlay" id="checkoutOverlay" role="dialog" aria-modal="true" aria-label="Check-out success" aria-hidden="true">
+    <div class="success-popup glass-card" style="border-color:rgba(99,202,183,0.3)">
+
+      <!-- Door icon animation -->
+      <div class="success-popup__icon" style="background:rgba(99,202,183,0.12);border-color:rgba(99,202,183,0.25)">
+        <i class="fa-solid fa-door-open" style="font-size:2.8rem;color:#63cab7"></i>
+      </div>
+
+      <h2 class="success-popup__title" style="color:#63cab7">চেক-আউট সফল!</h2>
+      <p style="color:var(--text-muted);font-size:.88rem;text-align:center;margin-bottom:1.2rem">
+        আপনি সফলভাবে অফিস থেকে বের হয়েছেন
+      </p>
+
+      <div class="success-popup__details" id="checkoutDetails">
+        <!-- Populated by JS -->
+      </div>
+
+      <button class="btn-gold" style="width:100%;margin-top:1.5rem;background:linear-gradient(135deg,#3a9e8c,#2d7a6b)"
+              onclick="closeCheckoutPopup()">
+        <i class="fa-solid fa-check"></i> ঠিক আছে
+      </button>
+    </div>
+  </div><!-- /#checkoutOverlay -->
+
+  <!-- ═══════════════════════════════════════════
+       ERROR POPUP
+  ═══════════════════════════════════════════ -->
+  <div class="error-popup-wrap" id="errorPopup" aria-live="assertive">
+    <div class="error-popup glass-card">
+      <i class="fa-solid fa-circle-xmark error-popup__icon"></i>
+      <div class="error-popup__body">
+        <strong id="errorPopupTitle">Error</strong>
+        <p id="errorPopupMsg"></p>
+      </div>
+      <button class="error-popup__close" onclick="closeErrorPopup()" aria-label="Dismiss">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TOAST CONTAINER
+  ═══════════════════════════════════════════ -->
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ═══════════════════════════════════════════
+       SCRIPTS
+  ═══════════════════════════════════════════ -->
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/gps.js"></script>
+  <script src="assets/js/qr-scanner.js"></script>
+
+  <script>
+    // ── Auth guard ───────────────────────────
+    let CURRENT_EMPLOYEE = null;
+    (function() {
+      const auth = sessionStorage.getItem('employeeAuth');
+      if (!auth) { window.location.href = 'index.html'; return; }
+      try {
+        const data = JSON.parse(auth);
+        if (data.role !== 'employee') { window.location.href = 'index.html'; return; }
+        CURRENT_EMPLOYEE = data.employee;
+      } catch(e) { window.location.href = 'index.html'; }
+    })();
+
+    // ── Live clock ───────────────────────────
+    function updateEmpClock() {
+      document.getElementById('empClock').textContent =
+        new Date().toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+    setInterval(updateEmpClock, 1000);
+    updateEmpClock();
+
+    // ── Populate profile ──────────────────────
+    function populateProfile() {
+      if (!CURRENT_EMPLOYEE) return;
+      const emp = CURRENT_EMPLOYEE;
+      const today = new Date().toLocaleDateString('en-BD', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      });
+
+      // Top card
+      document.getElementById('empProfileName').textContent = emp.name;
+      document.getElementById('empProfileDept').textContent = emp.department;
+      document.getElementById('empProfileId').textContent   = 'ID: ' + emp.id;
+      document.getElementById('empProfileDate').textContent = today;
+
+      // Profile tab
+      document.getElementById('profileDetailName').textContent    = emp.name;
+      document.getElementById('profileDetailDept').textContent    = emp.department;
+      document.getElementById('profileDetailId').textContent      = emp.id;
+      document.getElementById('profileDetailEmail').textContent   = emp.email   || '—';
+      document.getElementById('profileDetailPhone').textContent   = emp.phone   || '—';
+      document.getElementById('profileDetailDeptFull').textContent = emp.department;
+    }
+
+    // ── Check today's status ──────────────────
+    async function checkTodayStatus() {
+      try {
+        const today = getTodayString();
+        const result = await API.get({ action: 'getAttendance', employeeId: CURRENT_EMPLOYEE.id, date: today });
+        const banner    = document.getElementById('todayStatusBanner');
+        const bannerIcon = document.getElementById('statusBannerIcon');
+        const bannerVal  = document.getElementById('statusBannerValue');
+        const bannerTimes = document.getElementById('statusBannerTimes');
+        const alreadyDiv  = document.getElementById('alreadyCheckedIn');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+
+        const startBtn = document.getElementById('startScanBtn');
+
+        if (result.success && result.data.length > 0) {
+          const rec = result.data[0];
+
+          bannerIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+          bannerIcon.className = 'today-status-banner__icon today-status-banner__icon--' +
+            (rec.status === 'Present' ? 'present' : 'late');
+          bannerVal.textContent = rec.status;
+          bannerTimes.innerHTML = `
+            <span style="color:var(--gold)">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i> ঢুকেছি: <strong>${rec.checkIn || '—'}</strong>
+            </span>
+            <span style="color:${rec.checkOut ? '#63cab7' : '#f59e0b'}">
+              <i class="fa-solid fa-door-open"></i> বেরিয়েছি: <strong>${rec.checkOut || '⚠ Check-Out বাকি আছে'}</strong>
+            </span>
+          `;
+
+          alreadyDiv.classList.remove('hidden');
+          document.getElementById('existingCheckIn').textContent = rec.checkIn;
+          document.getElementById('existingStatus').textContent  = rec.status;
+          document.getElementById('scannerInstructions').style.opacity = '';
+
+          if (!rec.checkOut) {
+            // Checked in, not checked out → next scan = check-out
+            checkoutBtn.classList.add('hidden'); // hide manual fallback
+            startBtn.disabled = false;
+            startBtn.className = 'btn-scanner-start btn-checkout-scan';
+            startBtn.innerHTML =
+              '<i class="fa-solid fa-door-open"></i><span>Scan QR — Check-Out</span>';
+          } else {
+            // Both done
+            checkoutBtn.classList.add('hidden');
+            startBtn.disabled = true;
+            startBtn.className = 'btn-scanner-start';
+            startBtn.style.opacity = '0.6';
+            startBtn.innerHTML =
+              '<i class="fa-solid fa-circle-check"></i><span>আজকের Attendance সম্পন্ন ✓</span>';
+          }
+
+        } else {
+          // Not checked in yet → first scan = check-in
+          bannerIcon.innerHTML = `<i class="fa-solid fa-clock"></i>`;
+          bannerIcon.className = 'today-status-banner__icon today-status-banner__icon--pending';
+          bannerVal.textContent = 'Not Yet Marked';
+          bannerTimes.innerHTML = `<span>QR scan করুন — Check-In হবে</span>`;
+          alreadyDiv.classList.add('hidden');
+          checkoutBtn.classList.add('hidden');
+          startBtn.disabled = false;
+          startBtn.className = 'btn-scanner-start btn-gold';
+          startBtn.style.opacity = '';
+          startBtn.innerHTML = '<i class="fa-solid fa-camera"></i><span>Scan QR — Check-In</span>';
+          document.getElementById('scannerInstructions').style.opacity = '';
+        }
+      } catch(err) {
+        console.warn('Could not check today status:', err);
+      }
+    }
+
+    // ── Tab switching ─────────────────────────
+    function switchEmpTab(tabId, btn) {
+      document.querySelectorAll('.emp-tab').forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('.emp-tab-panel').forEach(p => p.classList.add('hidden'));
+
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+      if (tabId === 'history') loadHistory();
+      if (tabId === 'profile') loadProfileMonthStats();
+    }
+
+    // ── Manual fallback checkout (if camera unavailable) ─
+    async function markManualCheckOut() {
+      const btn = document.getElementById('checkoutBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing…';
+      try {
+        const result = await API.post({ action: 'checkOut', employeeId: CURRENT_EMPLOYEE.id });
+        if (result.success) {
+          btn.classList.add('hidden');
+          checkTodayStatus();
+          showCheckoutPopup(result.checkOut);
+        } else {
+          showToast('error', result.message);
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-door-open"></i> অফিস থেকে বের হচ্ছি — Check-Out';
+        }
+      } catch(err) {
+        showToast('error', 'Connection error.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-door-open"></i> অফিস থেকে বের হচ্ছি — Check-Out';
+      }
+    }
+
+    // Called by QR scanner after successful checkout scan
+    window.onScanCheckout = function(checkOutTime) {
+      checkTodayStatus();
+    };
+
+    // ── Checkout success popup ────────────────
+    function showCheckoutPopup(checkOutTime) {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-BD', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      });
+
+      document.getElementById('checkoutDetails').innerHTML = `
+        <div class="success-detail-row">
+          <i class="fa-solid fa-user" style="color:#63cab7"></i>
+          <div>
+            <span class="success-detail-label">Employee</span>
+            <span class="success-detail-value">${CURRENT_EMPLOYEE.name}</span>
+          </div>
+        </div>
+        <div class="success-detail-row">
+          <i class="fa-regular fa-calendar" style="color:#63cab7"></i>
+          <div>
+            <span class="success-detail-label">তারিখ</span>
+            <span class="success-detail-value">${dateStr}</span>
+          </div>
+        </div>
+        <div class="success-detail-row">
+          <i class="fa-solid fa-door-open" style="color:#63cab7"></i>
+          <div>
+            <span class="success-detail-label">Check-Out সময়</span>
+            <span class="success-detail-value" style="font-size:1.3rem;font-weight:700;color:#63cab7">${checkOutTime}</span>
+          </div>
+        </div>
+      `;
+
+      const overlay = document.getElementById('checkoutOverlay');
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeCheckoutPopup() {
+      const overlay = document.getElementById('checkoutOverlay');
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    // ── Load attendance history ───────────────
+    async function loadHistory() {
+      const month = document.getElementById('historyMonth').value;
+      const year  = new Date().getFullYear();
+      const list  = document.getElementById('historyList');
+
+      list.innerHTML = '<div class="emp-grid__loading"><i class="fa-solid fa-circle-notch fa-spin gold-text"></i><span>Loading…</span></div>';
+
+      try {
+        const result = await API.get({ action: 'getAttendance', employeeId: CURRENT_EMPLOYEE.id });
+        if (!result.success) throw new Error(result.message);
+
+        // Filter by selected month
+        const monthStr = month.toString().padStart(2, '0');
+        const prefix   = `${year}-${monthStr}`;
+        const records  = result.data.filter(r => r.date && r.date.startsWith(prefix));
+
+        // Calculate stats
+        let present = 0, late = 0;
+        records.forEach(r => { if (r.status === 'Late') late++; else present++; });
+        const daysInMonth = new Date(year, parseInt(month), 0).getDate();
+        const absent = Math.max(0, daysInMonth - (present + late));
+        const rate   = daysInMonth > 0 ? Math.round(((present + late) / daysInMonth) * 100) : 0;
+
+        document.getElementById('histPresent').textContent = present;
+        document.getElementById('histLate').textContent    = late;
+        document.getElementById('histAbsent').textContent  = absent;
+        document.getElementById('histRate').textContent    = rate + '%';
+
+        if (records.length === 0) {
+          list.innerHTML = '<p class="table-empty" style="text-align:center;padding:2rem">No records for this month.</p>';
+          return;
+        }
+
+        list.innerHTML = records.map(r => `
+          <div class="history-card glass-card">
+            <div class="history-card__date">
+              <span class="history-card__day">${r.date ? new Date(r.date).getDate() : '—'}</span>
+              <span class="history-card__mon">${r.date ? new Date(r.date+'T00:00:00').toLocaleDateString('en-BD',{month:'short'}) : ''}</span>
+            </div>
+            <div class="history-card__body">
+              <div class="history-card__times">
+                <span><i class="fa-solid fa-arrow-right-to-bracket gold-text"></i> In: <strong>${r.checkIn || '—'}</strong></span>
+                <span><i class="fa-solid fa-arrow-right-from-bracket" style="color:#888"></i> Out: <strong>${r.checkOut || '—'}</strong></span>
+              </div>
+              <div class="history-card__meta">
+                <i class="fa-solid fa-location-dot" style="color:#555"></i>
+                ${r.latitude ? `${parseFloat(r.latitude).toFixed(4)}, ${parseFloat(r.longitude).toFixed(4)}` : 'GPS not recorded'}
+              </div>
+            </div>
+            <div class="history-card__status">
+              <span class="status-badge status-badge--${r.status === 'Present' ? 'present' : 'late'}">
+                ${r.status}
+              </span>
+            </div>
+          </div>
+        `).join('');
+
+      } catch(err) {
+        list.innerHTML = `<p class="table-empty" style="text-align:center;padding:2rem">
+          <i class="fa-solid fa-triangle-exclamation gold-text"></i> ${err.message}
+        </p>`;
+      }
+    }
+
+    // ── Profile month stats bars ──────────────
+    async function loadProfileMonthStats() {
+      const container = document.getElementById('profileMonthBars');
+      try {
+        const now   = new Date();
+        const result = await API.get({ action: 'getAttendance', employeeId: CURRENT_EMPLOYEE.id, limit: '500' });
+        if (!result.success) throw new Error(result.message);
+
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+        const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+        const totals = labels.map(() => 0);
+
+        result.data
+          .filter(r => r.date && r.date.startsWith(monthPrefix))
+          .forEach(r => {
+            const day = parseInt(r.date.slice(-2), 10);
+            if (day >= 1 && day <= daysInMonth) totals[day - 1] = 1;
+          });
+
+        const maxVal = 1;
+        const today  = now.getDate();
+
+        container.innerHTML = `
+          <div class="profile-bar-chart">
+            ${labels.map((day, i) => {
+              const total = totals[i] || 0;
+              const pct   = Math.round((total / maxVal) * 100);
+              const isToday = day === today;
+              return `
+                <div class="profile-bar ${isToday ? 'profile-bar--today' : ''}" title="Day ${day}: ${total} attendance">
+                  <div class="profile-bar__fill" style="height:${pct}%"></div>
+                  ${isToday ? `<span class="profile-bar__label">Today</span>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <p class="profile-bar-legend">
+            <span><i class="fa-solid fa-square gold-text"></i> This Month — ${
+              totals.reduce((a,b) => a+b,0)
+            } total check-ins</span>
+          </p>
+        `;
+      } catch(err) {
+        container.innerHTML = `<p style="color:#888;font-size:.85rem">${err.message}</p>`;
+      }
+    }
+
+    // ── Success popup ─────────────────────────
+    function showSuccessPopup(data) {
+      const overlay = document.getElementById('successOverlay');
+      document.getElementById('successTitle').textContent =
+        data.status === 'Late' ? 'Late Attendance Marked' : 'Attendance Marked!';
+
+      document.getElementById('successDetails').innerHTML = `
+        <div class="success-detail-row">
+          <i class="fa-solid fa-user gold-text"></i>
+          <div>
+            <span class="success-detail-label">Employee</span>
+            <span class="success-detail-value">${data.employeeName}</span>
+          </div>
+        </div>
+        <div class="success-detail-row">
+          <i class="fa-regular fa-calendar gold-text"></i>
+          <div>
+            <span class="success-detail-label">Date</span>
+            <span class="success-detail-value">${data.date}</span>
+          </div>
+        </div>
+        <div class="success-detail-row">
+          <i class="fa-regular fa-clock gold-text"></i>
+          <div>
+            <span class="success-detail-label">Check-In Time</span>
+            <span class="success-detail-value">${data.checkIn}</span>
+          </div>
+        </div>
+        ${data.distance !== undefined ? `
+        <div class="success-detail-row">
+          <i class="fa-solid fa-location-dot gold-text"></i>
+          <div>
+            <span class="success-detail-label">Distance from Office</span>
+            <span class="success-detail-value">${data.distance}m</span>
+          </div>
+        </div>` : ''}
+      `;
+
+      document.getElementById('successStatus').innerHTML = `
+        <span class="status-badge status-badge--${data.status === 'Present' ? 'present' : 'late'} status-badge--lg">
+          <i class="fa-solid fa-${data.status === 'Present' ? 'circle-check' : 'clock'}"></i>
+          ${data.status}
+        </span>
+      `;
+
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeSuccessPopup() {
+      const overlay = document.getElementById('successOverlay');
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+      // Refresh status
+      checkTodayStatus();
+    }
+
+    // ── Error popup ───────────────────────────
+    function showErrorPopup(title, msg) {
+      document.getElementById('errorPopupTitle').textContent = title;
+      document.getElementById('errorPopupMsg').textContent   = msg;
+      document.getElementById('errorPopup').classList.add('show');
+      setTimeout(closeErrorPopup, 5000);
+    }
+    function closeErrorPopup() {
+      document.getElementById('errorPopup').classList.remove('show');
+    }
+
+    // ── Logout ────────────────────────────────
+    function empLogout() {
+      // Stop scanner if running
+      if (window.empQRScanner) {
+        try { window.empQRScanner.stop(); } catch(e) {}
+      }
+      sessionStorage.removeItem('employeeAuth');
+      window.location.href = 'index.html';
+    }
+
+    // ── Init ──────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      populateProfile();
+      checkTodayStatus();
+
+      // Set history month to current
+      document.getElementById('historyMonth').value = new Date().getMonth() + 1;
+
+      // Init GPS
+      if (window.GPSModule) GPSModule.init();
+    });
+  </script>
+
+</body>
+</html>

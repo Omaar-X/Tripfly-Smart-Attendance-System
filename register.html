@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#040406" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Employee Registration | Trip Fly BD</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body class="login-page">
+
+  <!-- Animated background -->
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+  </div>
+
+  <main class="login-wrapper" style="max-width:480px">
+
+    <!-- Brand -->
+    <header class="login-brand" data-animate="fade-down">
+      <div class="brand-emblem" style="background:none;border:none;padding:0;width:72px;height:72px">
+        <img src="assets/images/logo.png" alt="Trip Fly BD Logo"
+             style="width:72px;height:72px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(212,175,55,0.45))" />
+      </div>
+      <div class="brand-text">
+        <h1 class="brand-name">Trip Fly BD</h1>
+        <p class="brand-tagline">Employee Registration</p>
+      </div>
+    </header>
+
+    <!-- Card -->
+    <div class="login-card glass-card" data-animate="fade-up">
+
+      <div class="login-card__header">
+        <h2 class="login-card__title">
+          <i class="fa-solid fa-user-plus gold-text" style="font-size:1.2rem"></i>
+          নতুন Registration
+        </h2>
+        <p class="login-card__sub">তথ্য পূরণ করুন — Admin approve করলে login করতে পারবেন</p>
+      </div>
+
+      <!-- Success screen (hidden by default) -->
+      <div id="successScreen" style="display:none;text-align:center;padding:2rem 1rem">
+        <div style="font-size:3.5rem;color:var(--gold);margin-bottom:1rem">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--text-primary);margin-bottom:.5rem">
+          Registration সফল!
+        </h3>
+        <p style="color:var(--text-muted);font-size:.88rem;line-height:1.6;margin-bottom:1.5rem">
+          আপনার registration Admin এর কাছে পাঠানো হয়েছে।<br>
+          Admin approve করলে আপনি login করতে পারবেন।
+        </p>
+        <div id="regIdBadge" style="
+          background:rgba(212,175,55,0.1);
+          border:1px solid rgba(212,175,55,0.3);
+          border-radius:12px;
+          padding:.8rem 1.2rem;
+          margin-bottom:1.5rem;
+          font-size:.85rem;
+          color:var(--text-muted)
+        "></div>
+        <a href="index.html" style="
+          display:inline-flex;align-items:center;gap:.5rem;
+          background:linear-gradient(135deg,#D4AF37,#b8942e);
+          color:#0a0a12;border:none;border-radius:30px;
+          padding:.6rem 1.6rem;font-size:.88rem;font-weight:600;
+          text-decoration:none;cursor:pointer;
+        ">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Login Page এ যান
+        </a>
+      </div>
+
+      <!-- Registration Form -->
+      <div id="regFormWrap">
+        <form class="login-form" id="regForm" onsubmit="handleRegister(event)" novalidate>
+
+          <!-- Name -->
+          <div class="form-field">
+            <label class="form-label" for="regName">
+              <i class="fa-solid fa-user"></i> পূর্ণ নাম <span style="color:var(--red)">*</span>
+            </label>
+            <input type="text" id="regName" class="form-input"
+              placeholder="আপনার পূর্ণ নাম লিখুন" required />
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Department -->
+          <div class="form-field">
+            <label class="form-label" for="regDept">
+              <i class="fa-solid fa-building"></i> Department <span style="color:var(--red)">*</span>
+            </label>
+            <select id="regDept" class="form-input" required
+              style="background:transparent;cursor:pointer">
+              <option value="" disabled selected>Department select করুন</option>
+              <option value="Sales">Sales</option>
+              <option value="Operations">Operations</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Accounts">Accounts</option>
+              <option value="Customer Care">Customer Care</option>
+              <option value="IT">IT</option>
+              <option value="HR">HR</option>
+              <option value="Management">Management</option>
+              <option value="Other">Other</option>
+            </select>
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Phone -->
+          <div class="form-field">
+            <label class="form-label" for="regPhone">
+              <i class="fa-solid fa-phone"></i> Phone Number
+            </label>
+            <input type="tel" id="regPhone" class="form-input"
+              placeholder="01XXXXXXXXX (optional)" />
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Email -->
+          <div class="form-field">
+            <label class="form-label" for="regEmail">
+              <i class="fa-solid fa-envelope"></i> Email
+            </label>
+            <input type="email" id="regEmail" class="form-input"
+              placeholder="your@email.com (optional)" />
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- PIN -->
+          <div class="form-field">
+            <label class="form-label" for="regPin">
+              <i class="fa-solid fa-key"></i> 4-Digit PIN বেছে নিন <span style="color:var(--red)">*</span>
+            </label>
+            <div class="input-wrapper">
+              <input type="password" id="regPin" class="form-input"
+                placeholder="4 সংখ্যার PIN দিন"
+                maxlength="4" inputmode="numeric" pattern="[0-9]{4}" required />
+              <button type="button" class="toggle-password"
+                aria-label="Toggle PIN visibility"
+                onclick="togglePassword('regPin', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Confirm PIN -->
+          <div class="form-field">
+            <label class="form-label" for="regPinConfirm">
+              <i class="fa-solid fa-key"></i> PIN নিশ্চিত করুন <span style="color:var(--red)">*</span>
+            </label>
+            <div class="input-wrapper">
+              <input type="password" id="regPinConfirm" class="form-input"
+                placeholder="আবার PIN দিন"
+                maxlength="4" inputmode="numeric" pattern="[0-9]{4}" required />
+              <button type="button" class="toggle-password"
+                aria-label="Toggle PIN visibility"
+                onclick="togglePassword('regPinConfirm', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Alert -->
+          <div class="login-alert" id="regAlert" role="alert" aria-live="polite"></div>
+
+          <!-- Submit -->
+          <button type="submit" class="btn-login" id="regBtn">
+            <span class="btn-login__text">
+              <i class="fa-solid fa-user-plus"></i> Register করুন
+            </span>
+            <span class="btn-login__loader" aria-hidden="true">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+            </span>
+          </button>
+
+        </form>
+
+        <p style="text-align:center;margin-top:1rem;font-size:.82rem;color:var(--text-muted)">
+          আগেই registered?
+          <a href="index.html" style="color:var(--gold);text-decoration:none">Login করুন</a>
+        </p>
+      </div>
+
+    </div>
+
+    <footer class="login-footer" data-animate="fade-up" data-delay="300">
+      <p>&copy; <span id="regYear"></span> Trip Fly BD &mdash;
+        <span class="gold-text">Smart Attendance System</span>
+      </p>
+    </footer>
+
+  </main>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    document.getElementById('regYear').textContent = new Date().getFullYear();
+
+    // Entrance animations
+    document.querySelectorAll('[data-animate]').forEach((el, i) => {
+      const delay = parseInt(el.dataset.delay || 0);
+      el.style.animationDelay = (delay + i * 80) + 'ms';
+      el.classList.add('animate-in');
+    });
+
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const icon  = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
+    }
+
+    function showAlert(type, msg) {
+      const el = document.getElementById('regAlert');
+      el.className = 'login-alert login-alert--' + type + ' show';
+      el.innerHTML = `<i class="fa-solid fa-${type === 'error' ? 'circle-xmark' : 'circle-check'}"></i> ${msg}`;
+    }
+    function clearAlert() {
+      const el = document.getElementById('regAlert');
+      el.className = 'login-alert';
+      el.textContent = '';
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      clearAlert();
+
+      const name     = document.getElementById('regName').value.trim();
+      const dept     = document.getElementById('regDept').value;
+      const phone    = document.getElementById('regPhone').value.trim();
+      const email    = document.getElementById('regEmail').value.trim();
+      const pin      = document.getElementById('regPin').value.trim();
+      const pinConf  = document.getElementById('regPinConfirm').value.trim();
+      const btn      = document.getElementById('regBtn');
+
+      // Validation
+      if (!name) { showAlert('error', 'নাম দিন।'); return; }
+      if (!dept) { showAlert('error', 'Department select করুন।'); return; }
+      if (!pin || !/^\d{4}$/.test(pin)) { showAlert('error', 'PIN অবশ্যই ঠিক 4 সংখ্যার হতে হবে।'); return; }
+      if (pin !== pinConf) { showAlert('error', 'PIN দুটো মিলছে না।'); return; }
+
+      btn.disabled = true;
+      btn.classList.add('loading');
+
+      try {
+        const result = await API.post({
+          action: 'registerEmployee',
+          employee: { name, department: dept, phone, email, pin },
+        });
+
+        if (result.success) {
+          // Show success screen
+          document.getElementById('regFormWrap').style.display = 'none';
+          document.getElementById('successScreen').style.display = '';
+          document.getElementById('regIdBadge').innerHTML =
+            `<i class="fa-solid fa-id-badge" style="color:var(--gold)"></i>
+             আপনার Employee ID: <strong style="color:var(--gold)">${result.id}</strong><br>
+             <span style="font-size:.78rem">এই ID টা মনে রাখুন — login এর সময় লাগবে।</span>`;
+        } else {
+          showAlert('error', result.message || 'Registration ব্যর্থ হয়েছে।');
+          btn.disabled = false;
+          btn.classList.remove('loading');
+        }
+      } catch (err) {
+        showAlert('error', 'Connection error: ' + err.message);
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      }
+    }
+  </script>
+
+</body>
+</html>

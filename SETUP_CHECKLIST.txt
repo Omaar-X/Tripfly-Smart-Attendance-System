@@ -1,0 +1,67 @@
+================================================================
+   TRIP FLY BD ATTENDANCE — SETUP CHECKLIST
+================================================================
+
+Copy this checklist and tick off each step as you complete it.
+
+PHASE 1: GOOGLE SHEET
+  [ ] Created new Google Sheet named "TripFlyBD Attendance System"
+  [ ] Copied Sheet ID from URL
+  [ ] Sheet ID noted: _________________________________
+
+PHASE 2: APPS SCRIPT
+  [ ] Opened Extensions → Apps Script in the Sheet
+  [ ] Pasted apps_script.gs contents
+  [ ] Updated SPREADSHEET_ID on line 13
+  [ ] Saved the script (Ctrl+S)
+  [ ] Ran initializeSheets() function
+  [ ] Granted all permissions
+  [ ] Verified 4 tabs created (Employees/Attendance/QR_Tokens/Settings)
+  [ ] Verified 6 sample employees in Employees tab
+
+PHASE 3: WEB APP DEPLOYMENT
+  [ ] Deployed as Web App (Deploy → New Deployment)
+  [ ] Set "Execute as: Me"
+  [ ] Set "Who has access: Anyone"
+  [ ] Copied Web App URL
+  [ ] Web App URL noted: _________________________________
+  [ ] Tested URL in browser (should return JSON)
+
+PHASE 4: FRONTEND SETUP
+  [ ] Opened assets/js/app.js
+  [ ] Replaced PASTE_YOUR_WEB_APP_URL_HERE with actual URL
+  [ ] Saved app.js
+
+PHASE 5: GPS CONFIGURATION
+  [ ] Found office GPS coordinates from Google Maps
+  [ ] Updated Settings sheet:
+        OFFICE_LATITUDE:  __________
+        OFFICE_LONGITUDE: __________
+        ALLOWED_RADIUS:   100 (or custom value)
+  [ ] Verified office location is correct on Maps
+
+PHASE 6: SECURITY HARDENING
+  [ ] Changed admin password from 'admin123'
+  [ ] Changed employee PINs from defaults
+  [ ] Updated employee names/emails/departments
+  [ ] Set correct OFFICE_START_TIME (default: 09:00)
+
+PHASE 7: TESTING
+  [ ] Opened index.html → admin login works
+  [ ] Opened index.html → employee login works
+  [ ] Admin dashboard shows 6 employees
+  [ ] QR Station shows live QR code with countdown
+  [ ] Employee can scan QR code from phone
+  [ ] GPS status shows "GPS Active" on phone
+  [ ] Attendance appears in Google Sheet
+  [ ] Reports page generates CSV export
+
+PHASE 8: GO LIVE
+  [ ] Shared employee.html URL with all 6 employees
+  [ ] Informed employees of their login credentials
+  [ ] Tested full attendance workflow end-to-end
+  [ ] Admin dashboard verified with test attendance data
+
+================================================================
+SYSTEM IS READY TO USE!
+================================================================

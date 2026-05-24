@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Trip Fly BD — Smart Attendance Management System" />
+  <meta name="theme-color" content="#040406" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Trip Fly BD | Smart Attendance System</title>
+
+  <!-- ═══════════════════════════════════════════
+       CDN LIBRARIES
+  ═══════════════════════════════════════════ -->
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts: Cormorant Garamond (luxury display) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body class="login-page">
+
+  <!-- ═══════════════════════════════════════════
+       ANIMATED BACKGROUND
+  ═══════════════════════════════════════════ -->
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+    <div class="bg-orb bg-orb--4"></div>
+    <div class="bg-particles" id="bgParticles"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       LOGIN WRAPPER
+  ═══════════════════════════════════════════ -->
+  <main class="login-wrapper">
+
+    <!-- Brand Header -->
+    <header class="login-brand" data-animate="fade-down">
+      <div class="brand-emblem" style="background:none;border:none;padding:0;width:80px;height:80px">
+        <img src="assets/images/logo.png" alt="Trip Fly BD Logo"
+             style="width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 0 16px rgba(212,175,55,0.5))" />
+      </div>
+      <div class="brand-text">
+        <h1 class="brand-name">Trip Fly BD</h1>
+        <p class="brand-tagline">Smart Attendance Management</p>
+      </div>
+    </header>
+
+    <!-- Login Card -->
+    <div class="login-card glass-card" data-animate="fade-up">
+
+      <!-- Card header -->
+      <div class="login-card__header">
+        <h2 class="login-card__title">Welcome Back</h2>
+        <p class="login-card__sub">Select your role to continue</p>
+      </div>
+
+      <!-- Role Selector Tabs -->
+      <div class="role-tabs" role="tablist" aria-label="Login role">
+        <button
+          class="role-tab active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-admin"
+          id="tab-admin"
+          data-role="admin"
+          onclick="switchRole('admin')"
+        >
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>Admin</span>
+        </button>
+        <button
+          class="role-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-employee"
+          id="tab-employee"
+          data-role="employee"
+          onclick="switchRole('employee')"
+        >
+          <i class="fa-solid fa-user-tie"></i>
+          <span>Employee</span>
+        </button>
+      </div>
+
+      <!-- ─── ADMIN LOGIN PANEL ─── -->
+      <div class="login-panel active" id="panel-admin" role="tabpanel" aria-labelledby="tab-admin">
+        <form class="login-form" id="adminLoginForm" onsubmit="handleAdminLogin(event)" novalidate>
+
+          <div class="form-field">
+            <label class="form-label" for="adminUsername">
+              <i class="fa-solid fa-at"></i> Username
+            </label>
+            <input
+              type="text"
+              id="adminUsername"
+              class="form-input"
+              placeholder="Enter admin username"
+              autocomplete="username"
+              required
+            />
+            <span class="form-field__line"></span>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label" for="adminPassword">
+              <i class="fa-solid fa-lock"></i> Password
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                id="adminPassword"
+                class="form-input"
+                placeholder="Enter password"
+                autocomplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                class="toggle-password"
+                aria-label="Toggle password visibility"
+                onclick="togglePassword('adminPassword', this)"
+              >
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Login alert -->
+          <div class="login-alert" id="adminAlert" role="alert" aria-live="polite"></div>
+
+          <button type="submit" class="btn-login" id="adminLoginBtn">
+            <span class="btn-login__text">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i>
+              Sign In as Admin
+            </span>
+            <span class="btn-login__loader" aria-hidden="true">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+            </span>
+          </button>
+
+        </form>
+
+      </div>
+
+      <!-- ─── EMPLOYEE LOGIN PANEL ─── -->
+      <div class="login-panel" id="panel-employee" role="tabpanel" aria-labelledby="tab-employee" hidden>
+        <form class="login-form" id="empLoginForm" onsubmit="handleEmployeeLogin(event)" novalidate>
+
+          <div class="form-field">
+            <label class="form-label" for="empId">
+              <i class="fa-solid fa-id-badge"></i> Employee ID
+            </label>
+            <input
+              type="text"
+              id="empId"
+              class="form-input"
+              placeholder="e.g. EMP001"
+              autocomplete="username"
+              required
+            />
+            <span class="form-field__line"></span>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label" for="empPin">
+              <i class="fa-solid fa-key"></i> 4-Digit PIN
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                id="empPin"
+                class="form-input"
+                placeholder="Enter your PIN"
+                maxlength="4"
+                inputmode="numeric"
+                pattern="[0-9]{4}"
+                autocomplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                class="toggle-password"
+                aria-label="Toggle PIN visibility"
+                onclick="togglePassword('empPin', this)"
+              >
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <span class="form-field__line"></span>
+          </div>
+
+          <!-- Login alert -->
+          <div class="login-alert" id="empAlert" role="alert" aria-live="polite"></div>
+
+          <button type="submit" class="btn-login" id="empLoginBtn">
+            <span class="btn-login__text">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i>
+              Sign In as Employee
+            </span>
+            <span class="btn-login__loader" aria-hidden="true">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+            </span>
+          </button>
+
+        </form>
+
+        <!-- Hint -->
+        <p class="login-hint">
+          <i class="fa-solid fa-circle-info"></i>
+          Use your Employee ID and 4-digit PIN
+        </p>
+        <p style="text-align:center;margin-top:.8rem;font-size:.82rem;color:var(--text-muted)">
+          নতুন employee?
+          <a href="register.html" style="color:var(--gold);text-decoration:none;font-weight:500">
+            <i class="fa-solid fa-user-plus"></i> Register করুন
+          </a>
+        </p>
+      </div>
+
+    </div><!-- /.login-card -->
+
+    <!-- Footer -->
+    <footer class="login-footer" data-animate="fade-up" data-delay="300">
+      <p>
+        &copy; <span id="loginYear"></span> Trip Fly BD &mdash;
+        <span class="gold-text">Smart Attendance System</span>
+      </p>
+    </footer>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════
+       SCRIPTS
+  ═══════════════════════════════════════════ -->
+  <script src="assets/js/app.js"></script>
+  <script>
+    // ── Set footer year ──────────────────────
+    document.getElementById('loginYear').textContent = new Date().getFullYear();
+
+    // ── Entrance animations ──────────────────
+    document.querySelectorAll('[data-animate]').forEach((el, i) => {
+      const delay = parseInt(el.dataset.delay || 0);
+      el.style.animationDelay = (delay + i * 80) + 'ms';
+      el.classList.add('animate-in');
+    });
+
+    // ── Generate background particles ───────
+    (function generateParticles() {
+      const container = document.getElementById('bgParticles');
+      if (!container) return;
+      for (let i = 0; i < 22; i++) {
+        const p = document.createElement('span');
+        p.className = 'particle';
+        p.style.cssText = `
+          left: ${Math.random() * 100}%;
+          top:  ${Math.random() * 100}%;
+          width:  ${2 + Math.random() * 3}px;
+          height: ${2 + Math.random() * 3}px;
+          animation-duration: ${8 + Math.random() * 14}s;
+          animation-delay:    ${Math.random() * 8}s;
+          opacity: ${0.15 + Math.random() * 0.45};
+        `;
+        container.appendChild(p);
+      }
+    })();
+
+    // ── Switch role tabs ─────────────────────
+    function switchRole(role) {
+      document.querySelectorAll('.role-tab').forEach(t => {
+        const active = t.dataset.role === role;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', active);
+      });
+      document.querySelectorAll('.login-panel').forEach(p => {
+        const show = p.id === 'panel-' + role;
+        p.classList.toggle('active', show);
+        p.hidden = !show;
+      });
+      // Clear alerts on switch
+      document.querySelectorAll('.login-alert').forEach(a => {
+        a.textContent = '';
+        a.className = 'login-alert';
+      });
+    }
+
+    // ── Toggle password visibility ───────────
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const icon  = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
+    }
+
+    // ── Admin Login ──────────────────────────
+    async function handleAdminLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('adminUsername').value.trim();
+      const password = document.getElementById('adminPassword').value.trim();
+      const alert    = document.getElementById('adminAlert');
+      const btn      = document.getElementById('adminLoginBtn');
+
+      if (!username || !password) {
+        showAlert(alert, 'error', 'Please enter username and password.');
+        return;
+      }
+
+      setButtonLoading(btn, true);
+      clearAlert(alert);
+
+      // ── LOCAL FALLBACK (when API is not yet configured) ──
+      if (!API.isConfigured()) {
+        // Read stored credentials from localStorage (or use defaults)
+        const storedUser = localStorage.getItem('adminUsername') || 'admin';
+        const storedPass = localStorage.getItem('adminPassword') || 'admin123';
+
+        if (username === storedUser && password === storedPass) {
+          showAlert(alert, 'success', 'Login successful! Redirecting…');
+          sessionStorage.setItem('adminAuth', JSON.stringify({
+            role:      'admin',
+            username:  username,
+            token:     'local-' + Date.now(),
+            loginTime: Date.now(),
+            localMode: true,
+          }));
+          setTimeout(() => { window.location.href = 'admin.html'; }, 900);
+        } else {
+          showAlert(alert, 'error', 'Invalid username or password.');
+          shakeCard();
+        }
+        setButtonLoading(btn, false);
+        return;
+      }
+
+      // ── API-BACKED LOGIN ──
+      try {
+        const result = await API.post({ action: 'adminLogin', username, password });
+        if (result.success) {
+          showAlert(alert, 'success', 'Login successful! Redirecting…');
+          // Store session
+          sessionStorage.setItem('adminAuth', JSON.stringify({
+            role:      'admin',
+            username:  result.username,
+            token:     result.token,
+            loginTime: Date.now(),
+          }));
+          setTimeout(() => { window.location.href = 'admin.html'; }, 900);
+        } else {
+          showAlert(alert, 'error', result.message || 'Invalid credentials.');
+          shakeCard();
+        }
+      } catch (err) {
+        showAlert(alert, 'error', 'Connection error. Check API URL in app.js.');
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
+    // ── Employee Login ───────────────────────
+    async function handleEmployeeLogin(e) {
+      e.preventDefault();
+      const employeeId = document.getElementById('empId').value.trim().toUpperCase();
+      const pin        = document.getElementById('empPin').value.trim();
+      const alert      = document.getElementById('empAlert');
+      const btn        = document.getElementById('empLoginBtn');
+
+      if (!employeeId || !pin) {
+        showAlert(alert, 'error', 'Please enter Employee ID and PIN.');
+        return;
+      }
+
+      setButtonLoading(btn, true);
+      clearAlert(alert);
+
+      try {
+        const result = await API.post({ action: 'employeeLogin', employeeId, pin });
+        if (result.success) {
+          showAlert(alert, 'success', `Welcome, ${result.employee.name}! Redirecting…`);
+          sessionStorage.setItem('employeeAuth', JSON.stringify({
+            role:     'employee',
+            employee: result.employee,
+            loginTime: Date.now(),
+          }));
+          setTimeout(() => { window.location.href = 'employee.html'; }, 900);
+        } else {
+          showAlert(alert, 'error', result.message || 'Invalid ID or PIN.');
+          shakeCard();
+        }
+      } catch (err) {
+        showAlert(alert, 'error', 'Connection error. Check API URL in app.js.');
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
+    // ── Helpers ──────────────────────────────
+    function showAlert(el, type, msg) {
+      el.className = 'login-alert login-alert--' + type + ' show';
+      el.innerHTML = `<i class="fa-solid fa-${type === 'error' ? 'circle-xmark' : 'circle-check'}"></i> ${msg}`;
+    }
+    function clearAlert(el) {
+      el.className = 'login-alert';
+      el.textContent = '';
+    }
+    function setButtonLoading(btn, loading) {
+      btn.disabled = loading;
+      btn.classList.toggle('loading', loading);
+    }
+    function shakeCard() {
+      const card = document.querySelector('.login-card');
+      card.classList.add('shake');
+      card.addEventListener('animationend', () => card.classList.remove('shake'), { once: true });
+    }
+  </script>
+
+</body>
+</html>

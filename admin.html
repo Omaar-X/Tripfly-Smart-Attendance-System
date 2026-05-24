@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#040406" />
+  <meta name="description" content="Trip Fly BD Admin Dashboard" />
+  <title>Admin Dashboard | Trip Fly BD Attendance</title>
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body class="admin-page">
+
+  <!-- ═══════════════════════════════════════════
+       MOBILE SIDEBAR OVERLAY
+  ═══════════════════════════════════════════ -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════════════
+       SIDEBAR NAVIGATION
+  ═══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+
+    <!-- Sidebar brand -->
+    <div class="sidebar__brand">
+      <div class="sidebar__emblem" style="background:none;border:none;padding:2px">
+        <img src="assets/images/logo.png" alt="Logo"
+             style="width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(212,175,55,0.4))" />
+      </div>
+      <div class="sidebar__brand-text">
+        <span class="sidebar__company">Trip Fly BD</span>
+        <span class="sidebar__system">Attendance System</span>
+      </div>
+      <button class="sidebar__close" onclick="closeSidebar()" aria-label="Close sidebar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Admin badge -->
+    <div class="sidebar__user">
+      <div class="sidebar__avatar">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="sidebar__user-info">
+        <span class="sidebar__user-name" id="sidebarAdminName">Administrator</span>
+        <span class="sidebar__user-role gold-text">Admin Panel</span>
+      </div>
+    </div>
+
+    <hr class="sidebar__divider" />
+
+    <!-- Nav links -->
+    <nav class="sidebar__nav">
+      <a class="sidebar__link active" href="#" data-section="dashboard" onclick="navigateTo('dashboard', this)">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Dashboard</span>
+      </a>
+      <a class="sidebar__link" href="#" data-section="qr-station" onclick="navigateTo('qr-station', this)">
+        <i class="fa-solid fa-qrcode"></i>
+        <span>QR Station</span>
+        <span class="sidebar__badge live-badge">LIVE</span>
+      </a>
+      <a class="sidebar__link" href="#" data-section="attendance" onclick="navigateTo('attendance', this)">
+        <i class="fa-solid fa-calendar-check"></i>
+        <span>Attendance</span>
+      </a>
+      <a class="sidebar__link" href="#" data-section="employees" onclick="navigateTo('employees', this)">
+        <i class="fa-solid fa-users"></i>
+        <span>Employees</span>
+      </a>
+      <a class="sidebar__link" href="#" data-section="analytics" onclick="navigateTo('analytics', this)">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Analytics</span>
+      </a>
+      <a class="sidebar__link" href="#" data-section="settings" onclick="navigateTo('settings', this)">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+
+    <!-- Sidebar footer -->
+    <div class="sidebar__footer">
+      <a class="sidebar__link sidebar__link--danger" href="#" onclick="adminLogout()">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        <span>Sign Out</span>
+      </a>
+    </div>
+
+  </aside><!-- /.sidebar -->
+
+  <!-- ═══════════════════════════════════════════
+       MAIN CONTENT
+  ═══════════════════════════════════════════ -->
+  <div class="main-layout">
+
+    <!-- ─── TOP BAR ─── -->
+    <header class="topbar">
+      <div class="topbar__left">
+        <button class="topbar__hamburger" onclick="openSidebar()" aria-label="Open menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="topbar__breadcrumb">
+          <span class="gold-text" id="topbarSection">Dashboard</span>
+        </div>
+      </div>
+      <div class="topbar__right">
+        <!-- Live clock -->
+        <div class="topbar__clock">
+          <i class="fa-regular fa-clock"></i>
+          <span id="liveClock">--:--:--</span>
+        </div>
+        <!-- Date -->
+        <div class="topbar__date" id="topbarDate"></div>
+        <!-- Refresh -->
+        <button class="topbar__action" onclick="refreshCurrentSection()" aria-label="Refresh data" title="Refresh">
+          <i class="fa-solid fa-rotate-right" id="refreshIcon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ─── PAGE SECTIONS (shown one at a time) ─── -->
+    <main class="page-content" id="pageContent">
+
+      <!-- ══════════════════════════════
+           SECTION: DASHBOARD
+      ══════════════════════════════ -->
+      <section class="section" id="section-dashboard">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-gauge-high gold-text"></i>
+            Overview
+          </h2>
+          <p class="section-subtitle" id="dashDate">Today's Summary</p>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card stat-card--total glass-card" data-animate>
+            <div class="stat-card__icon">
+              <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__label">Total Employees</span>
+              <span class="stat-card__value" id="statTotal">—</span>
+            </div>
+            <div class="stat-card__glow"></div>
+          </div>
+
+          <div class="stat-card stat-card--present glass-card" data-animate>
+            <div class="stat-card__icon">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__label">Present Today</span>
+              <span class="stat-card__value" id="statPresent">—</span>
+            </div>
+            <div class="stat-card__glow"></div>
+          </div>
+
+          <div class="stat-card stat-card--late glass-card" data-animate>
+            <div class="stat-card__icon">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__label">Late Arrivals</span>
+              <span class="stat-card__value" id="statLate">—</span>
+            </div>
+            <div class="stat-card__glow"></div>
+          </div>
+
+          <div class="stat-card stat-card--absent glass-card" data-animate>
+            <div class="stat-card__icon">
+              <i class="fa-solid fa-circle-xmark"></i>
+            </div>
+            <div class="stat-card__body">
+              <span class="stat-card__label">Absent Today</span>
+              <span class="stat-card__value" id="statAbsent">—</span>
+            </div>
+            <div class="stat-card__glow"></div>
+          </div>
+        </div>
+
+        <!-- Attendance Rate Banner -->
+        <div class="rate-banner glass-card" id="rateBanner">
+          <div class="rate-banner__label">
+            <i class="fa-solid fa-chart-pie gold-text"></i>
+            Today's Attendance Rate
+          </div>
+          <div class="rate-banner__bar">
+            <div class="rate-banner__fill" id="rateBarFill" style="width:0%"></div>
+          </div>
+          <div class="rate-banner__pct" id="rateBarPct">0%</div>
+        </div>
+
+        <!-- Today's Attendance Table -->
+        <div class="glass-card table-card">
+          <div class="table-card__header">
+            <h3 class="table-card__title">
+              <i class="fa-solid fa-table-list gold-text"></i>
+              Today's Attendance Log
+            </h3>
+            <button class="btn-gold-outline btn-sm" onclick="exportTodayCSV()">
+              <i class="fa-solid fa-download"></i> Export
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table class="att-table" id="todayTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Employee</th>
+                  <th>Department</th>
+                  <th>Check-In</th>
+                  <th>Check-Out</th>
+                  <th>Status</th>
+                  <th>GPS</th>
+                </tr>
+              </thead>
+              <tbody id="todayTableBody">
+                <tr><td colspan="7" class="table-empty">
+                  <i class="fa-solid fa-circle-notch fa-spin"></i> Loading…
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section><!-- /#section-dashboard -->
+
+      <!-- ══════════════════════════════
+           SECTION: QR STATION
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-qr-station">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-qrcode gold-text"></i>
+            QR Station
+          </h2>
+          <p class="section-subtitle">Live dynamic QR — refreshes every 24 hours</p>
+          <a href="print-qr.html" target="_blank"
+            style="display:inline-flex;align-items:center;gap:.5rem;margin-top:.8rem;
+                   background:linear-gradient(135deg,#D4AF37,#b8942e);color:#0a0a12;
+                   border:none;border-radius:30px;padding:.55rem 1.4rem;
+                   font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;">
+            <i class="fa-solid fa-print"></i> Print Office QR (Gate এর জন্য)
+          </a>
+        </div>
+
+        <div class="qr-station-layout">
+
+          <!-- QR Display Card -->
+          <div class="qr-display-card glass-card">
+            <div class="qr-display-card__header">
+              <div class="live-dot"></div>
+              <span>LIVE QR CODE</span>
+            </div>
+
+            <div class="qr-canvas-wrap" id="qrCanvas">
+              <!-- QR rendered here by qr-generator.js -->
+            </div>
+
+            <p class="qr-refresh-note" style="margin-top:.5rem">
+              <i class="fa-solid fa-shield-halved" style="color:var(--gold)"></i>
+              QR valid for 24 hours &mdash; employees scan once per day.
+            </p>
+
+            <button class="btn-gold btn-block" onclick="forceRefreshQR()" style="margin-top:.8rem">
+              <i class="fa-solid fa-arrows-rotate"></i> Generate New QR
+            </button>
+          </div>
+
+          <!-- QR Info Panel -->
+          <div class="qr-info-panel">
+            <div class="glass-card qr-token-card">
+              <h3 class="card-title-sm">
+                <i class="fa-solid fa-key gold-text"></i> Active Token
+              </h3>
+              <p class="qr-token-value" id="activeToken">Loading…</p>
+              <div class="qr-token-meta">
+                <span><i class="fa-regular fa-clock"></i> Generated: <strong id="tokenGenTime">—</strong></span>
+                <span><i class="fa-solid fa-hourglass-half"></i> Expires: <strong id="tokenExpTime">—</strong></span>
+              </div>
+            </div>
+
+            <div class="glass-card qr-scan-stats">
+              <h3 class="card-title-sm">
+                <i class="fa-solid fa-chart-bar gold-text"></i> Scan Stats Today
+              </h3>
+              <div class="scan-stats-grid">
+                <div class="scan-stat">
+                  <span class="scan-stat__num" id="scanStatPresent">0</span>
+                  <span class="scan-stat__lbl">Present</span>
+                </div>
+                <div class="scan-stat scan-stat--late">
+                  <span class="scan-stat__num" id="scanStatLate">0</span>
+                  <span class="scan-stat__lbl">Late</span>
+                </div>
+                <div class="scan-stat scan-stat--absent">
+                  <span class="scan-stat__num" id="scanStatAbsent">0</span>
+                  <span class="scan-stat__lbl">Absent</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card qr-instructions">
+              <h3 class="card-title-sm">
+                <i class="fa-solid fa-circle-info gold-text"></i> How It Works
+              </h3>
+              <ol class="how-it-works">
+                <li><i class="fa-solid fa-1"></i> Display this QR on screen or projector</li>
+                <li><i class="fa-solid fa-2"></i> Employee opens employee.html on phone</li>
+                <li><i class="fa-solid fa-3"></i> Employee logs in with ID + PIN</li>
+                <li><i class="fa-solid fa-4"></i> Employee taps "Scan QR" and scans code</li>
+                <li><i class="fa-solid fa-5"></i> GPS is verified &amp; attendance is saved</li>
+              </ol>
+            </div>
+          </div>
+
+        </div><!-- /.qr-station-layout -->
+
+      </section><!-- /#section-qr-station -->
+
+      <!-- ══════════════════════════════
+           SECTION: ATTENDANCE
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-attendance">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-calendar-check gold-text"></i>
+            Attendance Records
+          </h2>
+          <p class="section-subtitle">Filter, search and export attendance logs</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="glass-card filter-bar">
+          <div class="filter-bar__group">
+            <label class="filter-label" for="filterDate">
+              <i class="fa-regular fa-calendar"></i> Date
+            </label>
+            <input type="date" id="filterDate" class="filter-input" />
+          </div>
+          <div class="filter-bar__group">
+            <label class="filter-label" for="filterEmpId">
+              <i class="fa-solid fa-id-badge"></i> Employee ID
+            </label>
+            <input type="text" id="filterEmpId" class="filter-input" placeholder="e.g. EMP001" />
+          </div>
+          <div class="filter-bar__group">
+            <label class="filter-label" for="filterStatus">
+              <i class="fa-solid fa-filter"></i> Status
+            </label>
+            <select id="filterStatus" class="filter-input filter-select">
+              <option value="">All Status</option>
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+            </select>
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="applyAttendanceFilter()">
+              <i class="fa-solid fa-magnifying-glass"></i> Search
+            </button>
+            <button class="btn-gold-outline" onclick="clearAttendanceFilter()">
+              <i class="fa-solid fa-xmark"></i> Clear
+            </button>
+            <button class="btn-gold-outline" onclick="exportAttendanceCSV()">
+              <i class="fa-solid fa-download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Attendance Table -->
+        <div class="glass-card table-card">
+          <div class="table-card__header">
+            <h3 class="table-card__title">
+              <i class="fa-solid fa-list gold-text"></i>
+              <span id="attTableTitle">All Attendance Records</span>
+            </h3>
+            <span class="table-count" id="attTableCount">0 records</span>
+          </div>
+          <div class="table-scroll">
+            <table class="att-table" id="attTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Att. ID</th>
+                  <th>Employee</th>
+                  <th>Date</th>
+                  <th>Check-In</th>
+                  <th>Check-Out</th>
+                  <th>Status</th>
+                  <th>GPS</th>
+                  <th>Device</th>
+                </tr>
+              </thead>
+              <tbody id="attTableBody">
+                <tr><td colspan="9" class="table-empty">
+                  <i class="fa-solid fa-circle-notch fa-spin"></i> Loading records…
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="table-pagination" id="attPagination"></div>
+        </div>
+
+      </section><!-- /#section-attendance -->
+
+      <!-- ══════════════════════════════
+           SECTION: EMPLOYEES
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-employees">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-users gold-text"></i>
+            Employee Management
+          </h2>
+          <p class="section-subtitle">Manage your team members</p>
+        </div>
+
+        <!-- ── Pending Approvals ── -->
+        <div id="pendingSection" style="display:none;margin-bottom:1.5rem">
+          <div class="glass-card" style="border:1px solid rgba(245,158,11,0.35);padding:1.2rem 1.5rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+              <h3 style="font-size:1rem;color:var(--amber);display:flex;align-items:center;gap:.5rem">
+                <i class="fa-solid fa-user-clock"></i>
+                Pending Approvals
+                <span id="pendingCount" style="
+                  background:rgba(245,158,11,0.2);
+                  border:1px solid rgba(245,158,11,0.4);
+                  color:var(--amber);border-radius:20px;
+                  padding:1px 10px;font-size:.78rem
+                ">0</span>
+              </h3>
+              <button onclick="loadPendingEmployees()" style="
+                background:none;border:none;color:var(--text-muted);
+                cursor:pointer;font-size:.8rem
+              "><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+            <div id="pendingList" style="display:flex;flex-direction:column;gap:.7rem"></div>
+          </div>
+        </div>
+
+        <!-- Actions bar -->
+        <div class="glass-card filter-bar">
+          <div class="filter-bar__group">
+            <label class="filter-label" for="empSearch">
+              <i class="fa-solid fa-magnifying-glass"></i> Search
+            </label>
+            <input type="text" id="empSearch" class="filter-input" placeholder="Name, ID, or Department" oninput="filterEmployeeTable()" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="openAddEmployeeModal()">
+              <i class="fa-solid fa-user-plus"></i> Add Employee
+            </button>
+            <button class="btn-gold-outline" onclick="exportEmployeesCSV()">
+              <i class="fa-solid fa-download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Employee Cards Grid -->
+        <div class="emp-grid" id="empGrid">
+          <div class="emp-grid__loading">
+            <i class="fa-solid fa-circle-notch fa-spin gold-text"></i>
+            <span>Loading employees…</span>
+          </div>
+        </div>
+
+        <!-- Employee Table (desktop) -->
+        <div class="glass-card table-card" style="margin-top:1.5rem">
+          <div class="table-card__header">
+            <h3 class="table-card__title">
+              <i class="fa-solid fa-table gold-text"></i> Employee Directory
+            </h3>
+            <span class="table-count" id="empTableCount">0 employees</span>
+          </div>
+          <div class="table-scroll">
+            <table class="att-table" id="empTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>PIN</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="empTableBody">
+                <tr><td colspan="8" class="table-empty">
+                  <i class="fa-solid fa-circle-notch fa-spin"></i> Loading…
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section><!-- /#section-employees -->
+
+      <!-- ══════════════════════════════
+           SECTION: ANALYTICS
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-analytics">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-chart-line gold-text"></i>
+            Analytics &amp; Charts
+          </h2>
+          <p class="section-subtitle">Monthly attendance trends and insights</p>
+        </div>
+
+        <!-- Month / Year selectors -->
+        <div class="glass-card filter-bar">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> Month</label>
+            <select id="chartMonth" class="filter-input filter-select" onchange="loadCharts()">
+              <option value="1">January</option><option value="2">February</option>
+              <option value="3">March</option><option value="4">April</option>
+              <option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-solid fa-calendar-days"></i> Year</label>
+            <input type="number" id="chartYear" class="filter-input" style="width:100px" min="2024" max="2099" onchange="loadCharts()" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="loadCharts()">
+              <i class="fa-solid fa-chart-bar"></i> Load Charts
+            </button>
+          </div>
+        </div>
+
+        <!-- Charts grid -->
+        <div class="charts-grid">
+          <div class="glass-card chart-card">
+            <h3 class="chart-card__title">
+              <i class="fa-solid fa-chart-line gold-text"></i>
+              Daily Attendance — Present vs Late
+            </h3>
+            <div class="chart-wrap">
+              <canvas id="monthlyLineChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card chart-card">
+            <h3 class="chart-card__title">
+              <i class="fa-solid fa-chart-bar gold-text"></i>
+              Daily Breakdown (Bar)
+            </h3>
+            <div class="chart-wrap">
+              <canvas id="monthlyBarChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card chart-card chart-card--half">
+            <h3 class="chart-card__title">
+              <i class="fa-solid fa-chart-pie gold-text"></i>
+              Today's Distribution
+            </h3>
+            <div class="chart-wrap chart-wrap--doughnut">
+              <canvas id="todayDoughnut"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card chart-card chart-card--half">
+            <h3 class="chart-card__title">
+              <i class="fa-solid fa-chart-area gold-text"></i>
+              Monthly Totals
+            </h3>
+            <div class="chart-wrap">
+              <canvas id="totalAreaChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </section><!-- /#section-analytics -->
+
+      <!-- ══════════════════════════════
+           SECTION: SETTINGS
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-settings">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-sliders gold-text"></i>
+            System Settings
+          </h2>
+          <p class="section-subtitle">Configure office, GPS radius, and security</p>
+        </div>
+
+        <div class="settings-grid">
+
+          <!-- Office Settings -->
+          <div class="glass-card settings-card">
+            <h3 class="settings-card__title">
+              <i class="fa-solid fa-building gold-text"></i> Office Details
+            </h3>
+            <div class="settings-form">
+              <div class="form-field">
+                <label class="form-label">Office Name</label>
+                <input type="text" id="sOfficeName" class="form-input" placeholder="Trip Fly BD" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Office Start Time</label>
+                <input type="time" id="sStartTime" class="form-input" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">QR Expiry (seconds) — 86400 = 24 ঘণ্টা</label>
+                <input type="number" id="sQrExpiry" class="form-input" min="60" max="172800" />
+                <span class="form-field__line"></span>
+              </div>
+              <button class="btn-gold" onclick="saveOfficeSettings()">
+                <i class="fa-solid fa-floppy-disk"></i> Save Settings
+              </button>
+            </div>
+          </div>
+
+          <!-- GPS Settings -->
+          <div class="glass-card settings-card">
+            <h3 class="settings-card__title">
+              <i class="fa-solid fa-location-dot gold-text"></i> GPS &amp; Location
+            </h3>
+            <div class="settings-form">
+              <div class="form-field">
+                <label class="form-label">Office Latitude</label>
+                <input type="text" id="sLat" class="form-input" placeholder="e.g. 23.8103" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Office Longitude</label>
+                <input type="text" id="sLng" class="form-input" placeholder="e.g. 90.4125" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Allowed Radius (metres)</label>
+                <input type="number" id="sRadius" class="form-input" min="20" max="500" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="settings-gps-actions">
+                <button class="btn-gold" onclick="saveGPSSettings()">
+                  <i class="fa-solid fa-floppy-disk"></i> Save GPS
+                </button>
+                <button class="btn-gold-outline" onclick="detectOfficeLocation()">
+                  <i class="fa-solid fa-location-crosshairs"></i> Detect My Location
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Admin Credentials -->
+          <div class="glass-card settings-card">
+            <h3 class="settings-card__title">
+              <i class="fa-solid fa-shield-halved gold-text"></i> Admin Credentials
+            </h3>
+            <div class="settings-form">
+              <div class="form-field">
+                <label class="form-label">Admin Username</label>
+                <input type="text" id="sAdminUser" class="form-input" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">New Password</label>
+                <input type="password" id="sAdminPass" class="form-input" placeholder="Leave blank to keep current" />
+                <span class="form-field__line"></span>
+              </div>
+              <button class="btn-gold" onclick="saveAdminCredentials()">
+                <i class="fa-solid fa-floppy-disk"></i> Update Credentials
+              </button>
+            </div>
+          </div>
+
+          <!-- System Info -->
+          <div class="glass-card settings-card">
+            <h3 class="settings-card__title">
+              <i class="fa-solid fa-circle-info gold-text"></i> System Info
+            </h3>
+            <div class="sys-info-list" id="sysInfoList">
+              <div class="sys-info-item">
+                <span class="sys-info-key">System</span>
+                <span class="sys-info-val">Trip Fly BD Attendance v1.0</span>
+              </div>
+              <div class="sys-info-item">
+                <span class="sys-info-key">Backend</span>
+                <span class="sys-info-val">Google Apps Script</span>
+              </div>
+              <div class="sys-info-item">
+                <span class="sys-info-key">Database</span>
+                <span class="sys-info-val">Google Sheets</span>
+              </div>
+              <div class="sys-info-item">
+                <span class="sys-info-key">QR Expiry</span>
+                <span class="sys-info-val" id="infoQrExpiry">30 sec</span>
+              </div>
+              <div class="sys-info-item">
+                <span class="sys-info-key">Office Radius</span>
+                <span class="sys-info-val" id="infoRadius">100 m</span>
+              </div>
+              <div class="sys-info-item">
+                <span class="sys-info-key">API Status</span>
+                <span class="sys-info-val" id="infoApiStatus">
+                  <i class="fa-solid fa-circle-notch fa-spin"></i> Checking…
+                </span>
+              </div>
+            </div>
+            <button class="btn-gold-outline" style="margin-top:1rem;width:100%" onclick="testAPIConnection()">
+              <i class="fa-solid fa-plug"></i> Test API Connection
+            </button>
+          </div>
+
+        </div><!-- /.settings-grid -->
+
+        <!-- Settings Alert -->
+        <div class="login-alert" id="settingsAlert" style="margin-top:1rem" role="alert" aria-live="polite"></div>
+
+      </section><!-- /#section-settings -->
+
+    </main><!-- /.page-content -->
+
+  </div><!-- /.main-layout -->
+
+  <!-- ═══════════════════════════════════════════
+       MODAL: ADD / EDIT EMPLOYEE
+  ═══════════════════════════════════════════ -->
+  <div class="modal-overlay" id="empModal" role="dialog" aria-modal="true" aria-labelledby="empModalTitle">
+    <div class="modal glass-card">
+      <div class="modal__header">
+        <h3 class="modal__title" id="empModalTitle">
+          <i class="fa-solid fa-user-plus gold-text"></i> Add Employee
+        </h3>
+        <button class="modal__close" onclick="closeEmpModal()" aria-label="Close modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal__body">
+        <form id="empModalForm" onsubmit="saveEmployee(event)" novalidate>
+          <input type="hidden" id="modalEmpId" />
+
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label">Full Name *</label>
+              <input type="text" id="modalName" class="form-input" required placeholder="Employee full name" />
+              <span class="form-field__line"></span>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Department *</label>
+              <select id="modalDept" class="form-input form-select" required>
+                <option value="">Select Department</option>
+                <option>Sales</option>
+                <option>Operations</option>
+                <option>Marketing</option>
+                <option>Accounts</option>
+                <option>Customer Care</option>
+                <option>IT</option>
+                <option>Management</option>
+              </select>
+              <span class="form-field__line"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label">Email</label>
+              <input type="email" id="modalEmail" class="form-input" placeholder="email@tripflybd.com" />
+              <span class="form-field__line"></span>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Phone</label>
+              <input type="tel" id="modalPhone" class="form-input" placeholder="01XXXXXXXXX" />
+              <span class="form-field__line"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label">4-Digit PIN *</label>
+              <input type="text" id="modalPin" class="form-input" maxlength="4" pattern="[0-9]{4}" placeholder="e.g. 1234" required />
+              <span class="form-field__line"></span>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Status</label>
+              <select id="modalStatus" class="form-input form-select">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+              <span class="form-field__line"></span>
+            </div>
+          </div>
+
+          <div class="login-alert" id="empModalAlert" role="alert" aria-live="polite"></div>
+
+          <div class="modal__footer">
+            <button type="button" class="btn-gold-outline" onclick="closeEmpModal()">Cancel</button>
+            <button type="submit" class="btn-gold" id="empModalSaveBtn">
+              <i class="fa-solid fa-floppy-disk"></i> Save Employee
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div><!-- /#empModal -->
+
+  <!-- ═══════════════════════════════════════════
+       TOAST NOTIFICATION
+  ═══════════════════════════════════════════ -->
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ═══════════════════════════════════════════
+       SCRIPTS
+  ═══════════════════════════════════════════ -->
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/qr-generator.js"></script>
+  <script src="assets/js/dashboard.js"></script>
+
+  <script>
+    // ── Auth guard ───────────────────────────
+    (function() {
+      const auth = sessionStorage.getItem('adminAuth');
+      if (!auth) { window.location.href = 'index.html'; return; }
+      try {
+        const data = JSON.parse(auth);
+        if (data.role !== 'admin') { window.location.href = 'index.html'; return; }
+        document.getElementById('sidebarAdminName').textContent = data.username || 'Administrator';
+      } catch(e) { window.location.href = 'index.html'; }
+    })();
+
+    // ── Live clock ───────────────────────────
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('liveClock').textContent =
+        now.toLocaleTimeString('en-BD', { hour12: false });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ── Date in topbar ────────────────────────
+    document.getElementById('topbarDate').textContent =
+      new Date().toLocaleDateString('en-BD', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
+    // ── Section navigation ────────────────────
+    const sectionNames = {
+      'dashboard':   'Dashboard',
+      'qr-station':  'QR Station',
+      'attendance':  'Attendance Records',
+      'employees':   'Employee Management',
+      'analytics':   'Analytics',
+      'settings':    'Settings',
+    };
+
+    function navigateTo(sectionId, linkEl) {
+      // Update links
+      document.querySelectorAll('.sidebar__link').forEach(l => l.classList.remove('active'));
+      if (linkEl) linkEl.classList.add('active');
+
+      // Show/hide sections
+      document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+      const target = document.getElementById('section-' + sectionId);
+      if (target) target.classList.remove('hidden');
+
+      // Update breadcrumb
+      document.getElementById('topbarSection').textContent = sectionNames[sectionId] || sectionId;
+
+      // Load section data
+      onSectionLoad(sectionId);
+
+      // Close mobile sidebar
+      closeSidebar();
+
+      // Prevent default link
+      return false;
+    }
+
+    function onSectionLoad(sectionId) {
+      switch (sectionId) {
+        case 'dashboard':    loadDashboard();     break;
+        case 'qr-station':   initQRStation();     break;
+        case 'attendance':   loadAttendanceTable({}); break;
+        case 'employees':    loadEmployees(); loadPendingEmployees(); break;
+        case 'analytics':    loadCharts();        break;
+        case 'settings':     loadSettings();      break;
+      }
+    }
+
+    function refreshCurrentSection() {
+      const active = document.querySelector('.sidebar__link.active');
+      const section = active ? active.dataset.section : 'dashboard';
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('fa-spin');
+      onSectionLoad(section);
+      setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+    }
+
+    // ── Mobile sidebar ────────────────────────
+    function openSidebar() {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sidebarOverlay').classList.add('show');
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('show');
+    }
+
+    // ── Pending Employee Approvals ────────────
+    async function loadPendingEmployees() {
+      try {
+        const result = await API.get({ action: 'getPendingEmployees' });
+        if (!result.success) return;
+
+        const list    = document.getElementById('pendingList');
+        const section = document.getElementById('pendingSection');
+        const countEl = document.getElementById('pendingCount');
+        const pending = result.data || [];
+
+        countEl.textContent = pending.length;
+
+        if (!pending.length) {
+          section.style.display = 'none';
+          return;
+        }
+
+        section.style.display = '';
+        list.innerHTML = pending.map(emp => `
+          <div style="
+            display:flex;align-items:center;justify-content:space-between;
+            background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);
+            border-radius:10px;padding:.7rem 1rem;gap:1rem;flex-wrap:wrap
+          ">
+            <div style="display:flex;align-items:center;gap:.8rem">
+              <div style="
+                width:36px;height:36px;background:rgba(245,158,11,0.15);
+                border-radius:50%;display:flex;align-items:center;justify-content:center;
+                color:var(--amber)
+              "><i class="fa-solid fa-user-clock"></i></div>
+              <div>
+                <div style="font-weight:500;color:var(--text-primary)">${emp.name}</div>
+                <div style="font-size:.75rem;color:var(--text-muted)">
+                  ${emp.id} &nbsp;·&nbsp; ${emp.department}
+                  ${emp.phone ? '&nbsp;·&nbsp;' + emp.phone : ''}
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:.5rem">
+              <button onclick="approveEmployee('${emp.id}','${emp.name.replace(/'/g,"\\'")}',this)" style="
+                background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);
+                color:#22c55e;border-radius:20px;padding:.35rem .9rem;
+                font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.35rem
+              "><i class="fa-solid fa-check"></i> Approve</button>
+              <button onclick="rejectEmployee('${emp.id}','${emp.name.replace(/'/g,"\\'")}',this)" style="
+                background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+                color:var(--red);border-radius:20px;padding:.35rem .9rem;
+                font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.35rem
+              "><i class="fa-solid fa-xmark"></i> Reject</button>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        console.error('[Pending] Error:', err);
+      }
+    }
+
+    async function approveEmployee(empId, empName, btn) {
+      btn.disabled = true;
+      try {
+        const result = await API.post({ action: 'approveEmployee', employeeId: empId });
+        if (result.success) {
+          showToast('success', `${empName} approved! তারা এখন login করতে পারবেন।`);
+          loadPendingEmployees();
+          loadEmployees();
+        } else {
+          showToast('error', result.message || 'Approve failed.');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showToast('error', 'Error: ' + err.message);
+        btn.disabled = false;
+      }
+    }
+
+    async function rejectEmployee(empId, empName, btn) {
+      if (!confirm(`${empName} এর registration reject করবেন?`)) return;
+      btn.disabled = true;
+      try {
+        const result = await API.post({ action: 'deleteEmployee', employeeId: empId });
+        if (result.success) {
+          showToast('info', `${empName} এর registration rejected.`);
+          loadPendingEmployees();
+          loadEmployees();
+        } else {
+          showToast('error', result.message || 'Reject failed.');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showToast('error', 'Error: ' + err.message);
+        btn.disabled = false;
+      }
+    }
+
+    // ── Logout ────────────────────────────────
+    function adminLogout() {
+      sessionStorage.removeItem('adminAuth');
+      window.location.href = 'index.html';
+    }
+
+    // ── Local mode notice ─────────────────────
+    function showLocalModeBanner() {
+      if (API.isConfigured()) return;
+      const banner = document.createElement('div');
+      banner.id = 'localModeBanner';
+      banner.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+        background: linear-gradient(90deg, rgba(212,175,55,0.18), rgba(212,175,55,0.08));
+        border-bottom: 1px solid rgba(212,175,55,0.35);
+        color: #D4AF37; font-size: .8rem; text-align: center;
+        padding: .5rem 1rem; display: flex; align-items: center; justify-content: center; gap: .5rem;
+      `;
+      banner.innerHTML = `
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <strong>Local Demo Mode</strong> — API not configured.
+        Open <code style="background:rgba(212,175,55,.12);padding:1px 6px;border-radius:4px">assets/js/app.js</code>
+        and paste your Google Apps Script Web App URL in <code style="background:rgba(212,175,55,.12);padding:1px 6px;border-radius:4px">APPS_SCRIPT_URL</code>.
+        <button onclick="document.getElementById('localModeBanner').remove()"
+          style="margin-left:.8rem;background:none;border:1px solid rgba(212,175,55,.4);color:#D4AF37;border-radius:20px;padding:2px 10px;cursor:pointer;font-size:.75rem">
+          Dismiss
+        </button>
+      `;
+      document.body.prepend(banner);
+      // Offset body so banner doesn't cover topbar
+      document.querySelector('.main-layout').style.paddingTop = '2.4rem';
+    }
+
+    // ── Initial load ──────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      // Show local mode banner if API not configured
+      showLocalModeBanner();
+
+      // Set chart month/year to current
+      const now = new Date();
+      document.getElementById('chartMonth').value = now.getMonth() + 1;
+      document.getElementById('chartYear').value  = now.getFullYear();
+
+      // Set filter date to today
+      document.getElementById('filterDate').value  = getTodayString();
+
+      // Load requested hash section or dashboard
+      const initialSection = (window.location.hash || '').replace('#', '') || 'dashboard';
+      const initialLink = document.querySelector(`.sidebar__link[data-section="${initialSection}"]`);
+      if (initialLink && sectionNames[initialSection]) {
+        navigateTo(initialSection, initialLink);
+      } else {
+        loadDashboard();
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Trip Fly BD Attendance Reports" />
+  <title>Reports | Trip Fly BD Attendance</title>
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+
+  <!-- Print styles embedded -->
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; color: black !important; }
+      .glass-card { border: 1px solid #ddd !important; background: white !important; box-shadow: none !important; }
+      .att-table th { background: #1a1a1a !important; color: white !important; -webkit-print-color-adjust: exact; }
+      .status-badge--present { background: #22c55e !important; color: white !important; -webkit-print-color-adjust: exact; }
+      .status-badge--late    { background: #f59e0b !important; color: white !important; -webkit-print-color-adjust: exact; }
+      .report-header { display: block !important; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body class="reports-page admin-page">
+
+  <!-- ═══════════════════════════════════════════
+       MOBILE SIDEBAR OVERLAY
+  ═══════════════════════════════════════════ -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════════════
+       SIDEBAR NAVIGATION (same as admin)
+  ═══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Reports navigation">
+    <div class="sidebar__brand">
+      <div class="sidebar__emblem">
+        <i class="fa-solid fa-plane-departure"></i>
+      </div>
+      <div class="sidebar__brand-text">
+        <span class="sidebar__company">Trip Fly BD</span>
+        <span class="sidebar__system">Attendance System</span>
+      </div>
+      <button class="sidebar__close" onclick="closeSidebar()" aria-label="Close sidebar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="sidebar__user">
+      <div class="sidebar__avatar">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="sidebar__user-info">
+        <span class="sidebar__user-name">Administrator</span>
+        <span class="sidebar__user-role gold-text">Reports Module</span>
+      </div>
+    </div>
+
+    <hr class="sidebar__divider" />
+
+    <nav class="sidebar__nav">
+      <a class="sidebar__link" href="admin.html">
+        <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
+      </a>
+      <a class="sidebar__link" href="admin.html#qr-station">
+        <i class="fa-solid fa-qrcode"></i><span>QR Station</span>
+      </a>
+      <a class="sidebar__link active" href="reports.html">
+        <i class="fa-solid fa-file-chart-column"></i><span>Reports</span>
+      </a>
+      <a class="sidebar__link" href="admin.html#employees">
+        <i class="fa-solid fa-users"></i><span>Employees</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+    <div class="sidebar__footer">
+      <a class="sidebar__link sidebar__link--danger" href="#" onclick="reportLogout()">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i><span>Sign Out</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════
+       MAIN LAYOUT
+  ═══════════════════════════════════════════ -->
+  <div class="main-layout">
+
+    <!-- TOP BAR -->
+    <header class="topbar no-print">
+      <div class="topbar__left">
+        <button class="topbar__hamburger" onclick="openSidebar()" aria-label="Open menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="topbar__breadcrumb">
+          <a href="admin.html" class="topbar__back">
+            <i class="fa-solid fa-chevron-left"></i>
+          </a>
+          <span class="gold-text">Reports &amp; Analytics</span>
+        </div>
+      </div>
+      <div class="topbar__right">
+        <div class="topbar__clock">
+          <i class="fa-regular fa-clock"></i>
+          <span id="reportsClock">--:--:--</span>
+        </div>
+        <button class="topbar__action" onclick="window.print()" title="Print Report" aria-label="Print">
+          <i class="fa-solid fa-print"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="page-content" id="pageContent">
+
+      <!-- ══════════════════════════════════
+           PRINT HEADER (visible only on print)
+      ══════════════════════════════════ -->
+      <div class="report-header" style="display:none; margin-bottom:2rem; border-bottom:2px solid #D4AF37; padding-bottom:1rem;">
+        <h1 style="font-family:'Cormorant Garamond',serif; font-size:2rem; margin:0; color:#1a1a1a">
+          Trip Fly BD
+        </h1>
+        <h2 style="font-size:1.2rem; color:#555; margin:0.25rem 0 0">
+          Attendance Report — <span id="printReportTitle">Monthly Summary</span>
+        </h2>
+        <p style="font-size:.85rem; color:#888; margin:0.5rem 0 0">
+          Generated: <span id="printGeneratedAt"></span>
+        </p>
+      </div>
+
+      <!-- ══════════════════════════════════
+           SECTION: REPORT FILTERS
+      ══════════════════════════════════ -->
+      <div class="section-header no-print">
+        <h2 class="section-title">
+          <i class="fa-solid fa-file-chart-column gold-text"></i>
+          Attendance Reports
+        </h2>
+        <p class="section-subtitle">Generate, filter and export detailed attendance data</p>
+      </div>
+
+      <!-- Report Type Tabs -->
+      <div class="report-type-tabs glass-card no-print">
+        <button class="report-type-tab active" data-report="daily"    onclick="switchReportType('daily',   this)">
+          <i class="fa-solid fa-calendar-day"></i> Daily
+        </button>
+        <button class="report-type-tab"         data-report="weekly"  onclick="switchReportType('weekly',  this)">
+          <i class="fa-solid fa-calendar-week"></i> Weekly
+        </button>
+        <button class="report-type-tab"         data-report="monthly" onclick="switchReportType('monthly', this)">
+          <i class="fa-solid fa-calendar"></i> Monthly
+        </button>
+        <button class="report-type-tab"         data-report="custom"  onclick="switchReportType('custom',  this)">
+          <i class="fa-solid fa-filter"></i> Custom Range
+        </button>
+        <button class="report-type-tab"         data-report="employee" onclick="switchReportType('employee', this)">
+          <i class="fa-solid fa-user"></i> By Employee
+        </button>
+      </div>
+
+      <!-- ─── Filter Bar (dynamic, changes per report type) ─── -->
+      <div class="glass-card filter-bar no-print" id="reportFilterBar">
+
+        <!-- DAILY filters -->
+        <div class="report-filter-group" id="filter-daily">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> Date</label>
+            <input type="date" id="filterDailyDate" class="filter-input" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="generateReport()">
+              <i class="fa-solid fa-magnifying-glass"></i> Generate
+            </button>
+          </div>
+        </div>
+
+        <!-- WEEKLY filters -->
+        <div class="report-filter-group hidden" id="filter-weekly">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-solid fa-calendar-week"></i> Week of</label>
+            <input type="date" id="filterWeekDate" class="filter-input" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="generateReport()">
+              <i class="fa-solid fa-magnifying-glass"></i> Generate
+            </button>
+          </div>
+        </div>
+
+        <!-- MONTHLY filters -->
+        <div class="report-filter-group hidden" id="filter-monthly">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> Month</label>
+            <select id="filterMonthMonth" class="filter-input filter-select">
+              <option value="1">January</option><option value="2">February</option>
+              <option value="3">March</option><option value="4">April</option>
+              <option value="5" selected>May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-solid fa-calendar-days"></i> Year</label>
+            <input type="number" id="filterMonthYear" class="filter-input" style="width:90px" min="2024" max="2099" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="generateReport()">
+              <i class="fa-solid fa-magnifying-glass"></i> Generate
+            </button>
+          </div>
+        </div>
+
+        <!-- CUSTOM RANGE filters -->
+        <div class="report-filter-group hidden" id="filter-custom">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> Start Date</label>
+            <input type="date" id="filterCustomStart" class="filter-input" />
+          </div>
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> End Date</label>
+            <input type="date" id="filterCustomEnd" class="filter-input" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="generateReport()">
+              <i class="fa-solid fa-magnifying-glass"></i> Generate
+            </button>
+          </div>
+        </div>
+
+        <!-- BY EMPLOYEE filters -->
+        <div class="report-filter-group hidden" id="filter-employee">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-solid fa-id-badge"></i> Employee</label>
+            <select id="filterEmpSelect" class="filter-input filter-select">
+              <option value="">All Employees</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> Month</label>
+            <select id="filterEmpMonth" class="filter-input filter-select">
+              <option value="1">January</option><option value="2">February</option>
+              <option value="3">March</option><option value="4">April</option>
+              <option value="5" selected>May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="generateReport()">
+              <i class="fa-solid fa-magnifying-glass"></i> Generate
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /#reportFilterBar -->
+
+      <!-- ─── Report Summary Stats ─── -->
+      <div class="report-summary-row" id="reportSummaryRow" style="display:none">
+        <div class="report-stat glass-card">
+          <i class="fa-solid fa-calendar-check gold-text"></i>
+          <div class="report-stat__body">
+            <span class="report-stat__num" id="rStatTotal">0</span>
+            <span class="report-stat__lbl">Total Records</span>
+          </div>
+        </div>
+        <div class="report-stat glass-card">
+          <i class="fa-solid fa-circle-check" style="color:#22c55e"></i>
+          <div class="report-stat__body">
+            <span class="report-stat__num" id="rStatPresent">0</span>
+            <span class="report-stat__lbl">Present</span>
+          </div>
+        </div>
+        <div class="report-stat glass-card">
+          <i class="fa-solid fa-clock" style="color:#f59e0b"></i>
+          <div class="report-stat__body">
+            <span class="report-stat__num" id="rStatLate">0</span>
+            <span class="report-stat__lbl">Late</span>
+          </div>
+        </div>
+        <div class="report-stat glass-card">
+          <i class="fa-solid fa-circle-xmark" style="color:#ef4444"></i>
+          <div class="report-stat__body">
+            <span class="report-stat__num" id="rStatAbsent">0</span>
+            <span class="report-stat__lbl">Absent</span>
+          </div>
+        </div>
+        <div class="report-stat glass-card">
+          <i class="fa-solid fa-percent gold-text"></i>
+          <div class="report-stat__body">
+            <span class="report-stat__num gold-text" id="rStatRate">0%</span>
+            <span class="report-stat__lbl">Att. Rate</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Report Chart ─── -->
+      <div class="glass-card chart-card report-chart-card" id="reportChartCard" style="display:none">
+        <div class="chart-card__header">
+          <h3 class="chart-card__title">
+            <i class="fa-solid fa-chart-bar gold-text"></i>
+            <span id="reportChartTitle">Report Chart</span>
+          </h3>
+        </div>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="reportChart"></canvas>
+        </div>
+      </div>
+
+      <!-- ─── Report Table ─── -->
+      <div class="glass-card table-card" id="reportTableCard" style="display:none">
+        <div class="table-card__header">
+          <div class="table-card__header-left">
+            <h3 class="table-card__title">
+              <i class="fa-solid fa-table-list gold-text"></i>
+              <span id="reportTableTitle">Report Details</span>
+            </h3>
+            <span class="table-count" id="reportTableCount">0 records</span>
+          </div>
+          <div class="table-card__header-right no-print">
+            <button class="btn-gold-outline btn-sm" onclick="exportReportCSV()">
+              <i class="fa-solid fa-file-csv"></i> CSV
+            </button>
+            <button class="btn-gold-outline btn-sm" onclick="window.print()">
+              <i class="fa-solid fa-print"></i> Print
+            </button>
+          </div>
+        </div>
+
+        <!-- Search within results -->
+        <div class="table-search no-print">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input
+            type="text"
+            id="reportTableSearch"
+            placeholder="Search within results…"
+            oninput="filterReportTable()"
+          />
+        </div>
+
+        <div class="table-scroll">
+          <table class="att-table" id="reportTable">
+            <thead id="reportTableHead">
+              <tr>
+                <th>#</th>
+                <th>Employee ID</th>
+                <th>Name</th>
+                <th>Date</th>
+                <th>Check-In</th>
+                <th>Check-Out</th>
+                <th>Status</th>
+                <th>GPS Location</th>
+                <th>Device</th>
+              </tr>
+            </thead>
+            <tbody id="reportTableBody">
+              <tr><td colspan="9" class="table-empty">
+                Select a report type and click Generate.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div><!-- /#reportTableCard -->
+
+      <!-- ─── Employee-wise Report (monthly breakdown per employee) ─── -->
+      <div class="glass-card table-card" id="empWiseCard" style="display:none">
+        <div class="table-card__header">
+          <h3 class="table-card__title">
+            <i class="fa-solid fa-users gold-text"></i>
+            Employee-wise Attendance Summary
+          </h3>
+          <button class="btn-gold-outline btn-sm no-print" onclick="exportEmpWiseCSV()">
+            <i class="fa-solid fa-download"></i> Export
+          </button>
+        </div>
+        <div class="table-scroll">
+          <table class="att-table" id="empWiseTable">
+            <thead>
+              <tr>
+                <th>Employee ID</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Present</th>
+                <th>Late</th>
+                <th>Absent</th>
+                <th>Attendance Rate</th>
+                <th>Last Check-In</th>
+              </tr>
+            </thead>
+            <tbody id="empWiseTableBody">
+              <tr><td colspan="8" class="table-empty">
+                Select Monthly or Employee report to see breakdown.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ─── Empty State ─── -->
+      <div class="report-empty-state" id="reportEmptyState">
+        <div class="report-empty-state__icon">
+          <i class="fa-solid fa-file-chart-column"></i>
+        </div>
+        <h3>Generate a Report</h3>
+        <p>Select a report type above, set your filters, and click Generate to view attendance data.</p>
+        <button class="btn-gold" onclick="generateReport()">
+          <i class="fa-solid fa-play"></i> Generate Today's Report
+        </button>
+      </div>
+
+    </main><!-- /.page-content -->
+  </div><!-- /.main-layout -->
+
+  <!-- ═══════════════════════════════════════════
+       TOAST CONTAINER
+  ═══════════════════════════════════════════ -->
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ═══════════════════════════════════════════
+       SCRIPTS
+  ═══════════════════════════════════════════ -->
+  <script src="assets/js/app.js"></script>
+
+  <script>
+    // ── Auth guard ───────────────────────────
+    (function() {
+      const auth = sessionStorage.getItem('adminAuth');
+      if (!auth) { window.location.href = 'index.html'; return; }
+      try {
+        const data = JSON.parse(auth);
+        if (data.role !== 'admin') { window.location.href = 'index.html'; return; }
+      } catch(e) { window.location.href = 'index.html'; }
+    })();
+
+    // ── State ─────────────────────────────────
+    let currentReportType = 'daily';
+    let allReportData = [];
+    let reportChart   = null;
+    let allEmployees  = [];
+
+    // ── Clock ─────────────────────────────────
+    function updateReportsClock() {
+      document.getElementById('reportsClock').textContent =
+        new Date().toLocaleTimeString('en-BD', { hour12: false });
+    }
+    setInterval(updateReportsClock, 1000);
+    updateReportsClock();
+
+    // ── Sidebar ───────────────────────────────
+    function openSidebar()  { document.getElementById('sidebar').classList.add('open');    document.getElementById('sidebarOverlay').classList.add('show'); }
+    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('show'); }
+    function reportLogout() { sessionStorage.removeItem('adminAuth'); window.location.href = 'index.html'; }
+
+    // ── Switch report type ────────────────────
+    function switchReportType(type, btn) {
+      currentReportType = type;
+
+      document.querySelectorAll('.report-type-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll('.report-filter-group').forEach(g => g.classList.add('hidden'));
+      document.getElementById('filter-' + type).classList.remove('hidden');
+
+      // Hide results until generated
+      hideReportResults();
+    }
+
+    function hideReportResults() {
+      document.getElementById('reportSummaryRow').style.display = 'none';
+      document.getElementById('reportChartCard').style.display  = 'none';
+      document.getElementById('reportTableCard').style.display  = 'none';
+      document.getElementById('empWiseCard').style.display      = 'none';
+      document.getElementById('reportEmptyState').style.display = 'flex';
+    }
+
+    function showReportResults() {
+      document.getElementById('reportEmptyState').style.display = 'none';
+      document.getElementById('reportSummaryRow').style.display = '';
+      document.getElementById('reportChartCard').style.display  = '';
+      document.getElementById('reportTableCard').style.display  = '';
+    }
+
+    // ── Generate Report ───────────────────────
+    async function generateReport() {
+      const type = currentReportType;
+
+      // Build filter params
+      let params = { action: 'getAttendance', limit: '5000' };
+
+      if (type === 'daily') {
+        const date = document.getElementById('filterDailyDate').value;
+        if (date) params.date = date;
+        document.getElementById('printReportTitle').textContent = 'Daily Report — ' + (date || 'Today');
+
+      } else if (type === 'weekly') {
+        const weekDate = document.getElementById('filterWeekDate').value;
+        if (weekDate) {
+          const d = new Date(weekDate);
+          const monday = new Date(d);
+          monday.setDate(d.getDate() - d.getDay() + 1);
+          params._weekStart = monday.toISOString().split('T')[0];
+          params._weekEnd   = new Date(monday.getTime() + 6 * 86400000).toISOString().split('T')[0];
+        }
+        document.getElementById('printReportTitle').textContent = 'Weekly Report';
+
+      } else if (type === 'monthly') {
+        const month = document.getElementById('filterMonthMonth').value.padStart(2, '0');
+        const year  = document.getElementById('filterMonthYear').value;
+        params._monthPrefix = `${year}-${month}`;
+        document.getElementById('printReportTitle').textContent =
+          `Monthly Report — ${document.getElementById('filterMonthMonth').options[document.getElementById('filterMonthMonth').selectedIndex].text} ${year}`;
+
+      } else if (type === 'custom') {
+        params._customStart = document.getElementById('filterCustomStart').value;
+        params._customEnd   = document.getElementById('filterCustomEnd').value;
+        document.getElementById('printReportTitle').textContent =
+          `Custom Report — ${params._customStart} to ${params._customEnd}`;
+
+      } else if (type === 'employee') {
+        const empId = document.getElementById('filterEmpSelect').value;
+        if (empId) params.employeeId = empId;
+        const month = document.getElementById('filterEmpMonth').value.padStart(2, '0');
+        const year  = new Date().getFullYear();
+        params._monthPrefix = `${year}-${month}`;
+        document.getElementById('printReportTitle').textContent = 'Employee Report';
+      }
+
+      document.getElementById('printGeneratedAt').textContent = new Date().toLocaleString('en-BD');
+
+      // Show loading
+      document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Generating report…</td></tr>';
+      showReportResults();
+
+      try {
+        const result = await API.get(params);
+        if (!result.success) throw new Error(result.message);
+
+        let records = result.data;
+
+        // Client-side date filtering
+        if (params._weekStart && params._weekEnd) {
+          records = records.filter(r => r.date >= params._weekStart && r.date <= params._weekEnd);
+        }
+        if (params._monthPrefix) {
+          records = records.filter(r => r.date && r.date.startsWith(params._monthPrefix));
+        }
+        if (params._customStart && params._customEnd) {
+          records = records.filter(r => r.date >= params._customStart && r.date <= params._customEnd);
+        }
+
+        allReportData = records;
+        renderReportTable(records);
+        renderReportSummary(records);
+        renderReportChart(records, type);
+
+        if (type === 'monthly' || type === 'employee') {
+          renderEmpWiseTable(records);
+          document.getElementById('empWiseCard').style.display = '';
+        } else {
+          document.getElementById('empWiseCard').style.display = 'none';
+        }
+
+      } catch(err) {
+        document.getElementById('reportTableBody').innerHTML =
+          `<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-triangle-exclamation gold-text"></i> ${err.message}</td></tr>`;
+      }
+    }
+
+    // ── Render Summary ────────────────────────
+    function renderReportSummary(records) {
+      const present = records.filter(r => r.status === 'Present').length;
+      const late    = records.filter(r => r.status === 'Late').length;
+      const total   = records.length;
+      // Absent: harder to calculate without knowing expected days — show as N/A for custom
+      const empIds  = [...new Set(records.map(r => r.employeeId))];
+
+      document.getElementById('rStatTotal').textContent   = total;
+      document.getElementById('rStatPresent').textContent = present;
+      document.getElementById('rStatLate').textContent    = late;
+      document.getElementById('rStatAbsent').textContent  = '—';
+      document.getElementById('rStatRate').textContent    =
+        total > 0 ? Math.round(((present + late) / Math.max(total, 1)) * 100) + '%' : '0%';
+    }
+
+    // ── Render Table ──────────────────────────
+    function renderReportTable(records) {
+      const tbody = document.getElementById('reportTableBody');
+      document.getElementById('reportTableCount').textContent = records.length + ' records';
+
+      if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No records found for the selected criteria.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = records.map((r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td><code style="color:var(--gold)">${r.employeeId || '—'}</code></td>
+          <td>${r.employeeName || '—'}</td>
+          <td>${r.date || '—'}</td>
+          <td>${r.checkIn || '—'}</td>
+          <td>${r.checkOut || '<span style="color:#555">—</span>'}</td>
+          <td>
+            <span class="status-badge status-badge--${r.status === 'Present' ? 'present' : 'late'}">
+              ${r.status || '—'}
+            </span>
+          </td>
+          <td>
+            ${r.latitude
+              ? `<a class="gps-link" href="https://maps.google.com/?q=${r.latitude},${r.longitude}" target="_blank" rel="noopener">
+                  <i class="fa-solid fa-location-dot gold-text"></i>
+                  ${parseFloat(r.latitude).toFixed(4)}, ${parseFloat(r.longitude).toFixed(4)}
+                </a>`
+              : '<span style="color:#555">—</span>'}
+          </td>
+          <td style="font-size:.78rem;color:#888">${(r.deviceInfo || '—').substring(0, 30)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // ── Render Chart ──────────────────────────
+    function renderReportChart(records, type) {
+      if (typeof Chart === 'undefined') {
+        document.getElementById('reportChartCard').style.display = 'none';
+        showToast('error', 'Chart.js did not load. Report table is still available.');
+        return;
+      }
+
+      const ctx = document.getElementById('reportChart').getContext('2d');
+      if (reportChart) reportChart.destroy();
+
+      if (records.length === 0) {
+        document.getElementById('reportChartCard').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('reportChartCard').style.display = '';
+
+      // Group by date
+      const grouped = {};
+      records.forEach(r => {
+        if (!grouped[r.date]) grouped[r.date] = { present: 0, late: 0 };
+        if (r.status === 'Late') grouped[r.date].late++;
+        else grouped[r.date].present++;
+      });
+
+      const labels  = Object.keys(grouped).sort();
+      const present = labels.map(d => grouped[d].present);
+      const late    = labels.map(d => grouped[d].late);
+
+      document.getElementById('reportChartTitle').textContent =
+        type.charAt(0).toUpperCase() + type.slice(1) + ' Report — Present vs Late';
+
+      reportChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Present',
+              data: present,
+              backgroundColor: 'rgba(212, 175, 55, 0.7)',
+              borderColor: 'rgba(212, 175, 55, 1)',
+              borderWidth: 1,
+              borderRadius: 4,
+            },
+            {
+              label: 'Late',
+              data: late,
+              backgroundColor: 'rgba(245, 158, 11, 0.5)',
+              borderColor: 'rgba(245, 158, 11, 0.8)',
+              borderWidth: 1,
+              borderRadius: 4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#D4AF37', font: { family: 'DM Sans', size: 12 } } },
+            tooltip: { backgroundColor: '#1a1a1a', borderColor: '#D4AF37', borderWidth: 1 },
+          },
+          scales: {
+            x: {
+              ticks: { color: '#888', font: { family: 'DM Sans', size: 10 } },
+              grid:  { color: 'rgba(212,175,55,0.08)' },
+            },
+            y: {
+              ticks: { color: '#888', stepSize: 1 },
+              grid:  { color: 'rgba(212,175,55,0.08)' },
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+    }
+
+    // ── Render Employee-wise Table ─────────────
+    function renderEmpWiseTable(records) {
+      // Build per-employee map
+      const empMap = {};
+      records.forEach(r => {
+        if (!empMap[r.employeeId]) {
+          empMap[r.employeeId] = {
+            id: r.employeeId, name: r.employeeName,
+            dept: '', present: 0, late: 0, lastCheckIn: '',
+          };
+        }
+        if (r.status === 'Late') empMap[r.employeeId].late++;
+        else empMap[r.employeeId].present++;
+        if (!empMap[r.employeeId].lastCheckIn || r.date > empMap[r.employeeId].lastCheckIn) {
+          empMap[r.employeeId].lastCheckIn = r.date + ' ' + (r.checkIn || '');
+        }
+      });
+
+      // Merge with employee list for dept
+      allEmployees.forEach(e => {
+        if (empMap[e.id]) empMap[e.id].dept = e.department;
+      });
+
+      const rows = Object.values(empMap);
+      const tbody = document.getElementById('empWiseTableBody');
+
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No data.</td></tr>';
+        return;
+      }
+
+      // Total working days for period (approximate: total unique dates)
+      const totalDays = [...new Set(records.map(r => r.date))].length || 1;
+
+      tbody.innerHTML = rows.map(r => {
+        const attended = r.present + r.late;
+        const absent   = Math.max(0, totalDays - attended);
+        const rate     = Math.round((attended / totalDays) * 100);
+        const rateColor = rate >= 90 ? '#22c55e' : rate >= 70 ? '#f59e0b' : '#ef4444';
+        return `
+          <tr>
+            <td><code style="color:var(--gold)">${r.id}</code></td>
+            <td><strong>${r.name}</strong></td>
+            <td>${r.dept || '—'}</td>
+            <td style="color:#22c55e"><strong>${r.present}</strong></td>
+            <td style="color:#f59e0b"><strong>${r.late}</strong></td>
+            <td style="color:#ef4444">${absent}</td>
+            <td>
+              <div class="rate-mini">
+                <div class="rate-mini__bar" style="background:${rateColor};width:${rate}%"></div>
+                <span style="color:${rateColor}">${rate}%</span>
+              </div>
+            </td>
+            <td style="font-size:.82rem;color:#aaa">${r.lastCheckIn || '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ── Filter table by search ────────────────
+    function filterReportTable() {
+      const q = document.getElementById('reportTableSearch').value.toLowerCase();
+      const rows = document.querySelectorAll('#reportTableBody tr');
+      rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    // ── CSV Export ────────────────────────────
+    function exportReportCSV() {
+      if (!allReportData.length) { showToast('error', 'No data to export.'); return; }
+      const headers = ['Att ID','Emp ID','Name','Date','Check-In','Check-Out','Status','Lat','Lng','Device'];
+      const rows = allReportData.map(r => [
+        r.id, r.employeeId, r.employeeName, r.date,
+        r.checkIn, r.checkOut, r.status, r.latitude, r.longitude, r.deviceInfo
+      ]);
+      downloadCSV([headers, ...rows], 'TripFlyBD_Report_' + new Date().toISOString().split('T')[0] + '.csv');
+    }
+
+    function exportEmpWiseCSV() {
+      const rows = [...document.querySelectorAll('#empWiseTable tbody tr')].map(row =>
+        [...row.querySelectorAll('td')].map(td => td.textContent.trim())
+      );
+      downloadCSV([
+        ['Employee ID','Name','Department','Present','Late','Absent','Rate','Last Check-In'],
+        ...rows
+      ], 'TripFlyBD_EmpSummary_' + new Date().toISOString().split('T')[0] + '.csv');
+    }
+
+    function downloadCSV(rows, filename) {
+      const csv = rows.map(r => r.map(c => `"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('success', 'CSV exported: ' + filename);
+    }
+
+    // ── Load employee list for dropdown ───────
+    async function loadEmployeeDropdown() {
+      try {
+        const result = await API.get({ action: 'getEmployees' });
+        if (result.success) {
+          allEmployees = result.data;
+          const sel = document.getElementById('filterEmpSelect');
+          result.data.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = `${e.id} — ${e.name}`;
+            sel.appendChild(opt);
+          });
+        }
+      } catch(err) { console.warn('Could not load employees:', err); }
+    }
+
+    // ── Init ──────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      const now = new Date();
+      const today = getTodayString();
+      document.getElementById('filterDailyDate').value    = today;
+      document.getElementById('filterWeekDate').value     = today;
+      document.getElementById('filterMonthYear').value    = now.getFullYear();
+      document.getElementById('filterMonthMonth').value   = now.getMonth() + 1;
+      document.getElementById('filterCustomStart').value  = today;
+      document.getElementById('filterCustomEnd').value    = today;
+      document.getElementById('filterEmpMonth').value     = now.getMonth() + 1;
+
+      loadEmployeeDropdown();
+    });
+  </script>
+
+</body>
+</html>

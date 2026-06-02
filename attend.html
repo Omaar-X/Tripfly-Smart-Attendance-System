@@ -361,13 +361,6 @@ async function processAttendance(employee) {
     return;
   }
 
-  // Session expires after 12 hours
-  if (Date.now() - (session.loginTime || 0) > 12 * 60 * 60 * 1000) {
-    localStorage.removeItem('employeeAuth');
-    show('stateLogin');
-    return;
-  }
-
   show('stateLoading');
   processAttendance(session.employee);
 })();

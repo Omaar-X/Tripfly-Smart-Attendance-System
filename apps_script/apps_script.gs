@@ -572,28 +572,20 @@ function markAttendance(body) {
     return { success: false, message: qrResult.message };
   }
 
-  // 2. Validate GPS
+  // 2. GPS — optional, logged for audit, never blocks attendance
   const settings = getSettingsMap();
-  const allowedRadius = parseFloat(settings['ALLOWED_RADIUS'] || '100');
-  const gpsRequired = String(settings['GPS_REQUIRED'] || 'TRUE').toUpperCase() !== 'FALSE' &&
-                      allowedRadius < 999999;
   let gpsResult = { valid: true, message: 'GPS not provided', distance: 0 };
   const hasGps = latitude !== undefined && latitude !== null && latitude !== '' &&
                  longitude !== undefined && longitude !== null && longitude !== '';
 
-  if (!hasGps && gpsRequired) {
-    return { success: false, message: 'GPS coordinates required. Please allow location access and try again.' };
-  }
-
   if (hasGps) {
     const latNum = parseFloat(latitude);
     const lngNum = parseFloat(longitude);
-    if (isNaN(latNum) || isNaN(lngNum)) {
-      return { success: false, message: 'Invalid GPS coordinates.' };
-    }
-    gpsResult = validateGPS(latNum, lngNum);
-    if (!gpsResult.valid) {
-      return { success: false, message: gpsResult.message };
+    if (!isNaN(latNum) && !isNaN(lngNum)) {
+      const dist = haversineDistance(latNum, lngNum,
+        parseFloat(settings['OFFICE_LATITUDE']  || '23.8103'),
+        parseFloat(settings['OFFICE_LONGITUDE'] || '90.4125'));
+      gpsResult = { valid: true, distance: Math.round(dist), message: 'Location logged' };
     }
   }
 

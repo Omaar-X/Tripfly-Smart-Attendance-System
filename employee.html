@@ -107,17 +107,8 @@
         <ul class="scanner-steps">
           <li><i class="fa-solid fa-1 gold-text"></i> সকালে ঢোকার সময় scan করুন → <strong>Check-In</strong></li>
           <li><i class="fa-solid fa-2 gold-text"></i> বিকেলে বের হওয়ার সময় আবার scan করুন → <strong>Check-Out</strong></li>
-          <li><i class="fa-solid fa-location-dot gold-text"></i> GPS automatically verify হবে</li>
+          <li><i class="fa-solid fa-shield-halved gold-text"></i> আপনার attendance secure ভাবে record হবে</li>
         </ul>
-      </div>
-
-      <!-- GPS Status indicator -->
-      <div class="gps-status-bar glass-card" id="gpsStatusBar">
-        <div class="gps-status-bar__dot" id="gpsDot"></div>
-        <span class="gps-status-bar__text" id="gpsStatusText">
-          <i class="fa-solid fa-circle-notch fa-spin"></i> Requesting GPS…
-        </span>
-        <span class="gps-status-bar__dist" id="gpsDistance"></span>
       </div>
 
       <!-- Already checked in notice -->
@@ -367,8 +358,6 @@
        SCRIPTS
   ═══════════════════════════════════════════ -->
   <script src="assets/js/app.js"></script>
-  <script src="assets/js/gps.js"></script>
-
   <script>
     // ── Auth guard ───────────────────────────
     let CURRENT_EMPLOYEE = null;
@@ -770,8 +759,6 @@
       // Set history month to current
       document.getElementById('historyMonth').value = new Date().getMonth() + 1;
 
-      // Init GPS
-      if (window.GPSModule) GPSModule.init();
     });
   </script>
 

@@ -3254,6 +3254,21 @@ input, select, textarea {
   .btn-scanner-start, .btn-checkout-scan { min-height: 52px; font-size: 0.95rem; }
 }
 
+/* ── Desktop: wider content area ── */
+@media (min-width: 1025px) {
+  .emp-main { max-width: 600px; }
+  .login-wrapper { max-width: 480px; }
+}
+
+/* ── Tablet portrait: admin tables scroll horizontally ── */
+@media (max-width: 768px) {
+  .att-table { min-width: 700px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-md); }
+  .emp-table  { min-width: 600px; }
+  .qr-station-layout { max-width: 100%; }
+  .page-content { padding-bottom: 3rem; }
+}
+
 /* ── Very small phones (360px and below) ── */
 @media (max-width: 360px) {
   .stats-grid         { grid-template-columns: 1fr 1fr; gap: 0.5rem; }

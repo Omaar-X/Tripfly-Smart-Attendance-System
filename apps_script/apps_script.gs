@@ -435,56 +435,48 @@ function deleteEmployee(body) {
 // QR TOKEN GENERATION & VALIDATION
 // ─────────────────────────────────────────────
 function generateQRToken() {
-  const sheet    = getSheet(SHEET_QR_TOKENS);
-  const settings = getSettingsMap();
-  const expirySec = parseInt(settings['QR_EXPIRY_SECONDS'] || '30');
+  const sheet = getSheet(SHEET_QR_TOKENS);
 
-  // Expire all current tokens
-  expireOldTokens();
+  // Deactivate all existing active tokens before creating a new one
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][3] === 'Active') {
+      sheet.getRange(i + 1, 4).setValue('Replaced');
+    }
+  }
 
-  const now    = new Date();
-  const expiry = new Date(now.getTime() + expirySec * 1000);
-  const token  = generateSecureToken();
+  const now   = new Date();
+  const token = generateSecureToken();
 
   sheet.appendRow([
     token,
     now.toISOString(),
-    expiry.toISOString(),
+    '',       // No time-based expiry — active until replaced
     'Active',
   ]);
 
   return {
-    success:    true,
-    token:      token,
+    success:     true,
+    token:       token,
     generatedAt: now.toISOString(),
-    expiresAt:  expiry.toISOString(),
-    expirySec:  expirySec,
   };
 }
 
 function getCurrentQR() {
-  const sheet    = getSheet(SHEET_QR_TOKENS);
-  expireOldTokens();
-  const data     = sheet.getDataRange().getValues();
-  const now      = new Date();
-  const settings = getSettingsMap();
+  const sheet = getSheet(SHEET_QR_TOKENS);
+  const data  = sheet.getDataRange().getValues();
 
+  // Return the most recent Active token — no time-based expiry check
   for (let i = data.length - 1; i >= 1; i--) {
-    const row    = data[i];
-    const expiry = new Date(row[2]);
-    const status = row[3];
-
-    if (status === 'Active' && expiry > now) {
+    if (data[i][3] === 'Active') {
       return {
-        success:   true,
-        token:     row[0],
-        expiresAt: row[2],
-        expirySec: parseInt(settings['QR_EXPIRY_SECONDS'] || '30'),
+        success:     true,
+        token:       data[i][0],
+        generatedAt: data[i][1] ? new Date(data[i][1]).toISOString() : new Date().toISOString(),
       };
     }
   }
 
-  // No active QR — admin must manually generate
   return { success: false, message: 'কোনো active QR নেই। Admin "Generate New QR" বাটন চাপুন।' };
 }
 
@@ -507,23 +499,16 @@ function validateQRToken(token) {
     return { valid: true, message: 'Static QR verified', token: token, isStatic: true };
   }
 
-  // ── Check dynamic (rotating) QR tokens ─────────────────
+  // ── Check dynamic QR tokens — valid only if status is Active ──
   const sheet = getSheet(SHEET_QR_TOKENS);
   const data  = sheet.getDataRange().getValues();
-  const now   = new Date();
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (row[0] === token) {
-      const expiry = new Date(row[2]);
       const status = row[3];
-
       if (status !== 'Active') {
-        return { valid: false, message: 'QR token already used or expired' };
-      }
-      if (expiry < now) {
-        sheet.getRange(i + 1, 4).setValue('Expired');
-        return { valid: false, message: 'QR token expired' };
+        return { valid: false, message: 'QR code has been replaced. Please scan the current QR displayed at the office.' };
       }
       return { valid: true, message: 'Token valid', token: token };
     }
@@ -532,18 +517,7 @@ function validateQRToken(token) {
 }
 
 function expireOldTokens() {
-  const sheet = getSheet(SHEET_QR_TOKENS);
-  const data  = sheet.getDataRange().getValues();
-  const now   = new Date();
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][3] === 'Active') {
-      const expiry = new Date(data[i][2]);
-      if (expiry < now) {
-        sheet.getRange(i + 1, 4).setValue('Expired');
-      }
-    }
-  }
+  // No-op: tokens no longer expire by time — they stay active until replaced by admin.
 }
 
 // ─────────────────────────────────────────────

@@ -250,9 +250,9 @@
         <div class="section-header">
           <h2 class="section-title">
             <i class="fa-solid fa-qrcode gold-text"></i>
-            QR Station
+            Office QR Station
           </h2>
-          <p class="section-subtitle">Live dynamic QR — refreshes every 24 hours</p>
+          <p class="section-subtitle">Manual QR — generate only when needed</p>
           <a href="print-qr.html" target="_blank"
             style="display:inline-flex;align-items:center;gap:.5rem;margin-top:.8rem;
                    background:linear-gradient(135deg,#D4AF37,#b8942e);color:#0a0a12;
@@ -277,7 +277,7 @@
 
             <p class="qr-refresh-note" style="margin-top:.5rem">
               <i class="fa-solid fa-shield-halved" style="color:var(--gold)"></i>
-              QR valid for 24 hours &mdash; employees scan once per day.
+              QR stays active until admin generates a new one.
             </p>
 
             <button class="btn-gold btn-block" onclick="forceRefreshQR()" style="margin-top:.8rem">
@@ -294,7 +294,7 @@
               <p class="qr-token-value" id="activeToken">Loading…</p>
               <div class="qr-token-meta">
                 <span><i class="fa-regular fa-clock"></i> Generated: <strong id="tokenGenTime">—</strong></span>
-                <span><i class="fa-solid fa-hourglass-half"></i> Expires: <strong id="tokenExpTime">—</strong></span>
+                <span><i class="fa-solid fa-infinity"></i> Status: <strong id="tokenExpTime">—</strong></span>
               </div>
             </div>
 

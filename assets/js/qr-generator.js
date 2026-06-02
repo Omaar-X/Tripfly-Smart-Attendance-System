@@ -87,12 +87,8 @@ const QRGenerator = (() => {
         hour: '2-digit', minute: '2-digit', hour12: true,
       });
     }
-    if (expEl && data.expiresAt) {
-      // Show as date+time since it's 24h
-      expEl.textContent = new Date(data.expiresAt).toLocaleString('en-BD', {
-        day: '2-digit', month: 'short',
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      });
+    if (expEl) {
+      expEl.textContent = 'Active — until replaced';
     }
   }
 
@@ -126,7 +122,6 @@ const QRGenerator = (() => {
       _updateTokenInfo({
         token:       result.token,
         generatedAt: result.generatedAt || new Date().toISOString(),
-        expiresAt:   result.expiresAt,
       });
 
     } catch (err) {
@@ -187,10 +182,9 @@ const QRGenerator = (() => {
       _updateTokenInfo({
         token:       result.token,
         generatedAt: result.generatedAt,
-        expiresAt:   result.expiresAt,
       });
 
-      showToast('success', 'নতুন QR generate হয়েছে — valid for 24 hours.');
+      showToast('success', 'নতুন QR generate হয়েছে — active until replaced.');
       _updateScanStats();
 
     } catch (err) {

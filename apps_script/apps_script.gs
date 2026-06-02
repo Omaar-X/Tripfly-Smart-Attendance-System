@@ -252,6 +252,7 @@ function initializeSheets() {
       ['OFFICE_LONGITUDE',  '90.4125'],
       ['ALLOWED_RADIUS',    '100'],           // metres
       ['OFFICE_START_TIME', '09:00'],
+      ['LATE_CUTOFF_TIME',  '10:30'],
       ['QR_EXPIRY_SECONDS', '86400'],  // 24 hours = 86400 seconds
       ['GPS_REQUIRED',      'TRUE'],
       ['ADMIN_USERNAME',    'admin'],
@@ -273,7 +274,15 @@ function getSettings() {
   const data  = sheet.getDataRange().getValues();
   const settings = {};
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0]) settings[data[i][0]] = data[i][1];
+    if (data[i][0]) {
+      let val = data[i][1];
+      if (val instanceof Date) {
+        val = Utilities.formatDate(val, 'Asia/Dhaka', 'HH:mm');
+      } else {
+        val = String(val);
+      }
+      settings[data[i][0]] = val;
+    }
   }
   return { success: true, data: settings };
 }
@@ -614,8 +623,8 @@ function markAttendance(body) {
   const dateStr    = Utilities.formatDate(now, 'Asia/Dhaka', 'yyyy-MM-dd');
 
   // 6. Determine status
-  const startTime  = settings['OFFICE_START_TIME'] || '09:00';
-  const status     = determineAttendanceStatus(timeStr, startTime);
+  const lateCutoff = settings['LATE_CUTOFF_TIME'] || '10:30';
+  const status     = determineAttendanceStatus(timeStr, lateCutoff);
 
   // 7. Generate attendance ID
   const attId = 'ATT' + Utilities.formatDate(now, 'Asia/Dhaka', 'yyyyMMddHHmmss') + Math.floor(Math.random() * 100);
@@ -868,12 +877,12 @@ function generatePIN() {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-function determineAttendanceStatus(timeStr, startTime) {
+function determineAttendanceStatus(timeStr, lateCutoff) {
   const [h, m] = timeStr.split(':').map(Number);
-  const [sh, sm] = startTime.split(':').map(Number);
-  const minutesNow   = h * 60 + m;
-  const minutesStart = sh * 60 + sm;
-  return minutesNow <= minutesStart ? 'Present' : 'Late';
+  const [ch, cm] = lateCutoff.split(':').map(Number);
+  const minutesNow    = h * 60 + m;
+  const minutesCutoff = ch * 60 + cm;
+  return minutesNow <= minutesCutoff ? 'Present' : 'Late';
 }
 
 function getEmployeeById(employeeId) {

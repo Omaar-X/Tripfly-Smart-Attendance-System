@@ -389,12 +389,20 @@
         const result = await API.post({ action: 'employeeLogin', employeeId, pin });
         if (result.success) {
           showAlert(alert, 'success', `Welcome, ${result.employee.name}! Redirecting…`);
-          sessionStorage.setItem('employeeAuth', JSON.stringify({
-            role:     'employee',
-            employee: result.employee,
+          const authData = JSON.stringify({
+            role:      'employee',
+            employee:  result.employee,
             loginTime: Date.now(),
-          }));
-          setTimeout(() => { window.location.href = 'employee.html'; }, 900);
+          });
+          sessionStorage.setItem('employeeAuth', authData);
+          localStorage.setItem('employeeAuth', authData);
+          const returnUrl = localStorage.getItem('attendReturnUrl');
+          if (returnUrl) {
+            localStorage.removeItem('attendReturnUrl');
+            setTimeout(() => { window.location.href = returnUrl; }, 900);
+          } else {
+            setTimeout(() => { window.location.href = 'employee.html'; }, 900);
+          }
         } else {
           showAlert(alert, 'error', result.message || 'Invalid ID or PIN.');
           shakeCard();

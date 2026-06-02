@@ -748,6 +748,7 @@
     // ── Logout ────────────────────────────────
     function empLogout() {
       sessionStorage.removeItem('employeeAuth');
+      localStorage.removeItem('employeeAuth');
       window.location.href = 'index.html';
     }
 

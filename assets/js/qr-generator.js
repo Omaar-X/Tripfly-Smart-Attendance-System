@@ -54,11 +54,9 @@ const QRGenerator = (() => {
     try {
       if (typeof QRCode === 'undefined') throw new Error('QRCode.js library did not load.');
 
-      const qrPayload = JSON.stringify({
-        token:     token,
-        system:    'TripFlyBD',
-        timestamp: Date.now(),
-      });
+      // Build a URL so phone's native camera opens attend.html directly
+      const base = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
+      const qrPayload = `${base}/attend.html?t=${encodeURIComponent(token)}`;
 
       _qrInstance = new QRCode(container, {
         text:         qrPayload,

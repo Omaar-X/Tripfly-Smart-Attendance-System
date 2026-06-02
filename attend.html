@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#040406" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Attendance | Trip Fly BD</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:      #D4AF37;
+      --gold-glow: rgba(212,175,55,0.25);
+      --gold-bdr:  rgba(212,175,55,0.3);
+      --gold-pale: rgba(212,175,55,0.08);
+      --bg:        #040406;
+      --glass-bdr: rgba(212,175,55,0.18);
+      --text-pri:  #f0ede8;
+      --text-sec:  #a89f94;
+      --text-muted:#5a5550;
+      --green:     #22c55e;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --teal:      #63cab7;
+    }
+
+    html, body {
+      height: 100dvh;
+      background: var(--bg);
+      color: var(--text-pri);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    /* ── Loading state ── */
+    .a-loading {
+      display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center;
+    }
+    .a-loading__spinner {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 2px solid var(--gold-bdr); background: var(--gold-pale);
+      display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--gold);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .a-loading__title { font-size: 1.1rem; font-weight: 700; }
+    .a-loading__sub { font-size: 0.83rem; color: var(--text-sec); }
+
+    /* ── Result card ── */
+    .a-result {
+      display: none; flex-direction: column; align-items: center; text-align: center;
+      width: 100%; max-width: 360px; gap: 0;
+    }
+    .a-result.show { display: flex; }
+
+    .a-result__ring {
+      width: 88px; height: 88px; border-radius: 50%;
+      border: 2.5px solid var(--gold); background: rgba(212,175,55,.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.6rem; color: var(--gold); margin-bottom: 18px;
+      animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    .a-result__ring.co { border-color: var(--teal); background: rgba(99,202,183,.08); color: var(--teal); }
+    .a-result__ring.err { border-color: var(--red); background: rgba(239,68,68,.08); color: var(--red); animation: none; }
+    @keyframes popIn { from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1} }
+
+    .a-result__title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .a-result__sub { font-size: .84rem; color: var(--text-sec); margin-bottom: 16px; line-height: 1.6; max-width: 280px; }
+
+    .a-result__pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 20px; border-radius: 999px; font-size: .83rem; font-weight: 700;
+      margin-bottom: 22px; letter-spacing: .04em;
+    }
+    .a-result__pill--present { background: rgba(34,197,94,.14); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .a-result__pill--late    { background: rgba(245,158,11,.14); color: var(--amber); border: 1px solid rgba(245,158,11,.3); }
+    .a-result__pill--checkout{ background: rgba(99,202,183,.14); color: var(--teal);  border: 1px solid rgba(99,202,183,.3); }
+    .a-result__pill--error   { background: rgba(239,68,68,.14);  color: var(--red);   border: 1px solid rgba(239,68,68,.3); }
+
+    .a-result__card {
+      width: 100%; background: rgba(212,175,55,.04);
+      border: 1px solid var(--glass-bdr); border-radius: 16px;
+      padding: 16px; display: flex; flex-direction: column; gap: 13px; margin-bottom: 22px;
+    }
+    .a-result__card.co { background: rgba(99,202,183,.04); border-color: rgba(99,202,183,.2); }
+    .a-result__row { display: flex; align-items: center; gap: 12px; text-align: left; }
+    .a-result__row i { width: 20px; text-align: center; color: var(--gold); font-size: .87rem; flex-shrink: 0; }
+    .a-result__card.co .a-result__row i { color: var(--teal); }
+    .a-result__lbl { display: block; font-size: .7rem; color: var(--text-muted); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 1px; }
+    .a-result__val { font-size: .92rem; font-weight: 600; color: var(--text-pri); }
+    .a-result__val.big { font-size: 1.22rem; color: var(--gold); }
+    .a-result__card.co .a-result__val.big { color: var(--teal); }
+
+    .a-result__btn {
+      width: 100%; padding: 15px; border-radius: 999px; border: none;
+      background: linear-gradient(135deg,#D4AF37,#a88820); color: #000;
+      font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .a-result__btn.co { background: linear-gradient(135deg,#3a9e8c,#2d7a6b); color: #fff; }
+    .a-result__btn.err { background: linear-gradient(135deg,#ef4444,#b91c1c); color: #fff; }
+    .a-result__btn:active { transform: scale(.97); }
+
+    .a-result__countdown { margin-top: 12px; font-size: .74rem; color: var(--text-muted); }
+
+    /* ── Login prompt ── */
+    .a-login {
+      display: none; flex-direction: column; align-items: center; text-align: center;
+      width: 100%; max-width: 340px; gap: 0;
+    }
+    .a-login.show { display: flex; }
+    .a-login__icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 2px solid var(--gold-bdr); background: var(--gold-pale);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; color: var(--gold); margin-bottom: 18px;
+    }
+    .a-login__title { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+    .a-login__sub { font-size: .84rem; color: var(--text-sec); line-height: 1.6; margin-bottom: 24px; }
+    .a-login__btn {
+      width: 100%; padding: 15px; border-radius: 999px; border: none;
+      background: linear-gradient(135deg,#D4AF37,#a88820); color: #000;
+      font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .a-login__btn:active { transform: scale(.97); }
+
+    /* ── Brand watermark ── */
+    .a-brand {
+      position: fixed; top: max(14px, env(safe-area-inset-top)); left: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .a-brand img { width: 24px; height: 24px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(212,175,55,.45)); }
+    .a-brand span { font-size: .82rem; font-weight: 700; color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<div class="a-brand">
+  <img src="assets/images/logo.png" alt="Trip Fly BD" />
+  <span>Trip Fly BD</span>
+</div>
+
+<!-- Loading -->
+<div class="a-loading" id="stateLoading">
+  <div class="a-loading__spinner"><i class="fa-solid fa-circle-notch"></i></div>
+  <div class="a-loading__title" id="loadTitle">প্রক্রিয়া হচ্ছে…</div>
+  <div class="a-loading__sub" id="loadSub">একটু অপেক্ষা করুন</div>
+</div>
+
+<!-- Result -->
+<div class="a-result" id="stateResult">
+  <div class="a-result__ring" id="resRing"><i id="resRingIcon" class="fa-solid fa-circle-check"></i></div>
+  <h2 class="a-result__title" id="resTitle">Attendance Marked!</h2>
+  <p class="a-result__sub" id="resSub">সফলভাবে সম্পন্ন হয়েছে</p>
+  <div class="a-result__pill" id="resPill"><i id="resPillIcon" class="fa-solid fa-circle-check"></i><span id="resPillText">Present</span></div>
+  <div class="a-result__card" id="resCard"></div>
+  <button class="a-result__btn" id="resBtn" onclick="goToDashboard()">
+    <i class="fa-solid fa-house"></i> Dashboard এ যান
+  </button>
+  <p class="a-result__countdown" id="resCountdown"></p>
+</div>
+
+<!-- Login prompt -->
+<div class="a-login" id="stateLogin">
+  <div class="a-login__icon"><i class="fa-solid fa-lock"></i></div>
+  <h2 class="a-login__title">Login করুন</h2>
+  <p class="a-login__sub">Attendance দিতে প্রথমে আপনার account এ login করুন।<br/>Login করার পর automatically attendance mark হয়ে যাবে।</p>
+  <button class="a-login__btn" onclick="goToLogin()">
+    <i class="fa-solid fa-arrow-right-to-bracket"></i> Login করুন
+  </button>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+'use strict';
+
+const _params  = new URLSearchParams(window.location.search);
+const _token   = _params.get('t');
+let   _countdown = null;
+
+function show(id) {
+  ['stateLoading','stateResult','stateLogin'].forEach(s => {
+    document.getElementById(s).style.display = 'none';
+  });
+  document.getElementById(id).style.display = 'flex';
+}
+
+function goToDashboard() {
+  if (_countdown) clearInterval(_countdown);
+  window.location.href = 'employee.html';
+}
+
+function goToLogin() {
+  // Remember this URL so login can redirect back here
+  localStorage.setItem('attendReturnUrl', window.location.href);
+  window.location.href = 'index.html';
+}
+
+function startCountdown(secs) {
+  const el = document.getElementById('resCountdown');
+  el.textContent = `${secs} সেকেন্ডে Dashboard এ যাবে…`;
+  _countdown = setInterval(() => {
+    secs--;
+    if (secs <= 0) { clearInterval(_countdown); goToDashboard(); }
+    else el.textContent = `${secs} সেকেন্ডে Dashboard এ যাবে…`;
+  }, 1000);
+}
+
+function showResult(mode, data) {
+  show('stateResult');
+  const ring    = document.getElementById('resRing');
+  const ringIcon= document.getElementById('resRingIcon');
+  const title   = document.getElementById('resTitle');
+  const sub     = document.getElementById('resSub');
+  const pill    = document.getElementById('resPill');
+  const pillIco = document.getElementById('resPillIcon');
+  const pillTxt = document.getElementById('resPillText');
+  const card    = document.getElementById('resCard');
+  const btn     = document.getElementById('resBtn');
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('en-BD', { weekday:'long', day:'numeric', month:'long' });
+
+  if (mode === 'checkout') {
+    ring.className = 'a-result__ring co'; ringIcon.className = 'fa-solid fa-door-open';
+    title.textContent = 'Check-Out সম্পন্ন!';
+    sub.textContent   = 'আপনি সফলভাবে বের হয়েছেন';
+    pill.className    = 'a-result__pill a-result__pill--checkout';
+    pillIco.className = 'fa-solid fa-door-open'; pillTxt.textContent = 'Check-Out';
+    card.className    = 'a-result__card co'; btn.className = 'a-result__btn co';
+    card.innerHTML    = `
+      <div class="a-result__row"><i class="fa-solid fa-user"></i><div><span class="a-result__lbl">Employee</span><span class="a-result__val">${data.employeeName || '—'}</span></div></div>
+      <div class="a-result__row"><i class="fa-regular fa-calendar"></i><div><span class="a-result__lbl">তারিখ</span><span class="a-result__val">${dateStr}</span></div></div>
+      <div class="a-result__row"><i class="fa-solid fa-door-open"></i><div><span class="a-result__lbl">Check-Out সময়</span><span class="a-result__val big">${data.checkOut || '—'}</span></div></div>`;
+  } else {
+    const late = data.status === 'Late';
+    ring.className = 'a-result__ring'; ringIcon.className = 'fa-solid fa-circle-check';
+    title.textContent = late ? 'দেরি হয়েছে!' : 'Attendance Marked!';
+    sub.textContent   = late ? 'Check-In হয়েছে কিন্তু দেরি' : 'সফলভাবে Check-In সম্পন্ন';
+    pill.className    = 'a-result__pill a-result__pill--' + (late ? 'late' : 'present');
+    pillIco.className = 'fa-solid fa-' + (late ? 'clock' : 'circle-check');
+    pillTxt.textContent = late ? 'Late' : 'Present';
+    card.className    = 'a-result__card'; btn.className = 'a-result__btn';
+    card.innerHTML    = `
+      <div class="a-result__row"><i class="fa-solid fa-user"></i><div><span class="a-result__lbl">Employee</span><span class="a-result__val">${data.employeeName || '—'}</span></div></div>
+      <div class="a-result__row"><i class="fa-regular fa-calendar"></i><div><span class="a-result__lbl">তারিখ</span><span class="a-result__val">${data.date || dateStr}</span></div></div>
+      <div class="a-result__row"><i class="fa-regular fa-clock"></i><div><span class="a-result__lbl">Check-In সময়</span><span class="a-result__val big">${data.checkIn || '—'}</span></div></div>`;
+  }
+  startCountdown(6);
+}
+
+function showError(msg) {
+  show('stateResult');
+  document.getElementById('resRing').className   = 'a-result__ring err';
+  document.getElementById('resRingIcon').className = 'fa-solid fa-circle-xmark';
+  document.getElementById('resTitle').textContent = 'সমস্যা হয়েছে';
+  document.getElementById('resSub').textContent   = msg;
+  document.getElementById('resPill').className    = 'a-result__pill a-result__pill--error';
+  document.getElementById('resPillIcon').className= 'fa-solid fa-xmark';
+  document.getElementById('resPillText').textContent = 'Error';
+  document.getElementById('resCard').innerHTML    = '';
+  document.getElementById('resCard').className    = 'a-result__card';
+  const btn = document.getElementById('resBtn');
+  btn.className = 'a-result__btn err';
+  btn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Dashboard এ ফিরুন';
+}
+
+async function processAttendance(employee) {
+  document.getElementById('loadTitle').textContent = 'Attendance দেওয়া হচ্ছে…';
+  document.getElementById('loadSub').textContent   = employee.name + ' — একটু অপেক্ষা করুন';
+
+  // Determine mode (check-in or check-out)
+  let mode = 'checkin';
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const rec   = await API.get({ action: 'getAttendance', employeeId: employee.id, date: today });
+    if (rec.success && rec.data.length > 0) {
+      const r = rec.data[0];
+      if (r.checkOut) {
+        showError('আজকের Attendance ইতোমধ্যে সম্পন্ন হয়েছে (Check-In + Check-Out দুটোই হয়েছে)।');
+        return;
+      }
+      if (r.checkIn) mode = 'checkout';
+    }
+  } catch {
+    // If status check fails, assume check-in
+  }
+
+  try {
+    let result;
+    if (mode === 'checkout') {
+      result = await API.post({ action: 'checkOut', employeeId: employee.id, qrToken: _token });
+    } else {
+      let gps = null;
+      try {
+        gps = await new Promise((res, rej) => {
+          navigator.geolocation.getCurrentPosition(
+            p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+            () => res(null),
+            { timeout: 4000, maximumAge: 120000 }
+          );
+        });
+      } catch {}
+
+      const payload = {
+        action:     'markAttendance',
+        employeeId: employee.id,
+        qrToken:    _token,
+        deviceInfo: navigator.userAgent,
+      };
+      if (gps) { payload.latitude = gps.lat; payload.longitude = gps.lng; }
+      result = await API.post(payload);
+    }
+
+    if (result.success) {
+      // Attach employee name for display
+      result.employeeName = result.employeeName || employee.name;
+      showResult(mode, result);
+    } else {
+      showError(result.message || 'Attendance mark করতে সমস্যা হয়েছে।');
+    }
+  } catch (err) {
+    showError(err.message || 'Network error হয়েছে। Internet connection চেক করুন।');
+  }
+}
+
+// ── Entry point ──────────────────────────────────────────
+(function init() {
+  if (!_token) {
+    showError('QR code টি সঠিক নয় অথবা মেয়াদ শেষ হয়ে গেছে।');
+    return;
+  }
+
+  // Check localStorage for persistent session
+  const raw = localStorage.getItem('employeeAuth');
+  if (!raw) {
+    show('stateLogin');
+    return;
+  }
+
+  let session;
+  try { session = JSON.parse(raw); } catch { show('stateLogin'); return; }
+
+  if (session.role !== 'employee' || !session.employee) {
+    show('stateLogin');
+    return;
+  }
+
+  // Session expires after 12 hours
+  if (Date.now() - (session.loginTime || 0) > 12 * 60 * 60 * 1000) {
+    localStorage.removeItem('employeeAuth');
+    show('stateLogin');
+    return;
+  }
+
+  show('stateLoading');
+  processAttendance(session.employee);
+})();
+</script>
+</body>
+</html>

@@ -311,6 +311,16 @@ let _mode = 'checkin';
 let _qrCode = null;
 let _isBusy = false;
 let _countdownId = null;
+let _gpsPos = null;
+
+function tryGetGPS() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    p => { _gpsPos = { lat: p.coords.latitude, lng: p.coords.longitude }; },
+    () => {},
+    { timeout: 6000, maximumAge: 120000 }
+  );
+}
 
 function showState(name) {
   ['stateLoading','stateDone','stateStart','stateCamera'].forEach(id => {
@@ -361,6 +371,7 @@ async function initPage() {
   if (!CURRENT_EMPLOYEE) return;
   document.getElementById('bottomName').textContent = CURRENT_EMPLOYEE.name;
   document.getElementById('bottomId').textContent = CURRENT_EMPLOYEE.id;
+  tryGetGPS();
   try {
     const result = await API.get({ action: 'getAttendance', employeeId: CURRENT_EMPLOYEE.id, date: getTodayString() });
     if (result.success && result.data.length > 0) {
@@ -396,15 +407,20 @@ async function launchCamera() {
     _qrCode = new Html5Qrcode('qrReader');
     await _qrCode.start({ facingMode: 'environment' }, { fps: 25, showTorchButtonIfSupported: true, showZoomSliderIfSupported: true, defaultZoomValueIfSupported: 2, formatsToSupport: [0] }, onScanSuccess, () => {});
   } catch (err) {
-    showState('Start');
-    let msg = 'Camera চালু করতে সমস্যা হয়েছে।';
-    if (err.message) {
-      const m = err.message.toLowerCase();
-      if (m.includes('permission') || m.includes('denied')) msg = 'Camera permission দিন। Browser settings → এই site → Camera → Allow করুন।';
-      else if (m.includes('notfound')) msg = 'Back camera পাওয়া যাচ্ছে না।';
-      else if (m.includes('insecure') || m.includes('https')) msg = 'HTTPS দরকার camera ব্যবহারের জন্য।';
+    let msg;
+    const m = (err.message || '').toLowerCase();
+    if (m.includes('permission') || m.includes('denied') || m.includes('notallowed')) {
+      msg = 'Camera permission দেওয়া হয়নি।\n\nBrowser address bar এ lock/camera icon এ click করে Camera → Allow করুন, তারপর page reload করুন।';
+    } else if (m.includes('notfound') || m.includes('overconstrained') || m.includes('devicenotfound')) {
+      msg = 'কোনো camera পাওয়া গেল না। অন্য browser দিয়ে চেষ্টা করুন।';
+    } else if (m.includes('insecure') || m.includes('https') || m.includes('secure')) {
+      msg = 'Camera ব্যবহার করতে HTTPS connection দরকার। GitHub Pages বা HTTPS এ open করুন।';
+    } else if (m.includes('abort') || m.includes('inuse')) {
+      msg = 'Camera অন্য app ব্যবহার করছে। অন্য app বন্ধ করে আবার চেষ্টা করুন।';
+    } else {
+      msg = 'Camera চালু হয়নি।\n\nError: ' + (err.message || 'Unknown');
     }
-    showErr(msg);
+    showCameraErr(msg);
   }
 }
 
@@ -423,7 +439,9 @@ async function onScanSuccess(raw) {
     if (_mode === 'checkout') {
       result = await API.post({ action: 'checkOut', employeeId: CURRENT_EMPLOYEE.id, qrToken: token });
     } else {
-      result = await API.post({ action: 'markAttendance', employeeId: CURRENT_EMPLOYEE.id, qrToken: token, deviceInfo: getDeviceInfo() });
+      const payload = { action: 'markAttendance', employeeId: CURRENT_EMPLOYEE.id, qrToken: token, deviceInfo: getDeviceInfo() };
+      if (_gpsPos) { payload.latitude = _gpsPos.lat; payload.longitude = _gpsPos.lng; }
+      result = await API.post(payload);
     }
     proc.classList.remove('on');
     if (result.success) {
@@ -474,6 +492,26 @@ function showResult(data) {
   const cd = document.getElementById('resultCountdown');
   cd.textContent = `${secs} সেকেন্ডে ফিরে যাবে…`;
   _countdownId = setInterval(() => { secs--; if (secs <= 0) { clearInterval(_countdownId); goBack(); } else cd.textContent = `${secs} সেকেন্ডে ফিরে যাবে…`; }, 1000);
+}
+
+function showCameraErr(msg) {
+  const cam = document.getElementById('stateCamera');
+  cam.querySelectorAll('.s-camera-err').forEach(e => e.remove());
+  const box = document.createElement('div');
+  box.className = 's-camera-err';
+  box.style.cssText = 'position:absolute;inset:0;z-index:40;background:rgba(4,4,6,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:28px;text-align:center;';
+  box.innerHTML = `
+    <i class="fa-solid fa-camera-slash" style="font-size:3rem;color:var(--red)"></i>
+    <p style="font-size:.9rem;color:var(--text-pri);line-height:1.7;white-space:pre-line;max-width:300px">${msg}</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button onclick="location.reload()" style="padding:12px 24px;border-radius:999px;border:none;background:linear-gradient(135deg,#D4AF37,#a88820);color:#000;font-weight:700;font-family:inherit;font-size:.9rem;cursor:pointer">
+        <i class="fa-solid fa-rotate-right"></i> Reload করুন
+      </button>
+      <button onclick="showState('Start')" style="padding:12px 24px;border-radius:999px;border:1px solid var(--gold-bdr);background:var(--gold-pale);color:var(--gold);font-weight:600;font-family:inherit;font-size:.9rem;cursor:pointer">
+        <i class="fa-solid fa-arrow-left"></i> ফিরুন
+      </button>
+    </div>`;
+  cam.appendChild(box);
 }
 
 function showErr(msg) {

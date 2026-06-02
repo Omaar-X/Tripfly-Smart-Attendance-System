@@ -484,8 +484,8 @@ function getCurrentQR() {
     }
   }
 
-  // No active QR — auto-generate
-  return generateQRToken();
+  // No active QR — admin must manually generate
+  return { success: false, message: 'কোনো active QR নেই। Admin "Generate New QR" বাটন চাপুন।' };
 }
 
 function validateQRToken(token) {
@@ -941,11 +941,12 @@ function markTokenUsed(token) {
 }
 
 // ─────────────────────────────────────────────
-// AUTO QR REFRESH (set as time-based trigger)
-// Run every 30 seconds via Apps Script trigger
+// AUTO QR REFRESH — DISABLED
+// এই trigger Apps Script editor থেকে delete করুন:
+// Triggers menu → autoRefreshQR → Delete
 // ─────────────────────────────────────────────
 function autoRefreshQR() {
-  generateQRToken();
+  // disabled — QR now generated only on manual request
 }
 
 // ─────────────────────────────────────────────

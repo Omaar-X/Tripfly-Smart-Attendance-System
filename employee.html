@@ -15,9 +15,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <!-- html5-qrcode -->
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
   <!-- Main stylesheet -->
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
@@ -134,35 +131,11 @@
         </div>
       </div>
 
-      <!-- Scanner Container -->
-      <div class="scanner-container" id="scannerContainer">
-        <!-- Camera feed rendered here by html5-qrcode -->
-        <div id="qrReaderViewfinder"></div>
-
-        <!-- Scan overlay frame -->
-        <div class="scan-frame" id="scanFrame" aria-hidden="true">
-          <div class="scan-frame__corner scan-frame__corner--tl"></div>
-          <div class="scan-frame__corner scan-frame__corner--tr"></div>
-          <div class="scan-frame__corner scan-frame__corner--bl"></div>
-          <div class="scan-frame__corner scan-frame__corner--br"></div>
-          <div class="scan-line" id="scanLine"></div>
-        </div>
-
-        <p class="scanner-hint" id="scannerHint">
-          <i class="fa-solid fa-camera-rotate"></i>
-          Point camera at the QR code on the office screen
-        </p>
-      </div>
-
       <!-- Scanner Action Buttons -->
       <div class="scanner-actions" id="scannerActions">
-        <button class="btn-scanner-start btn-gold" id="startScanBtn" onclick="startQRScan()">
+        <button class="btn-scanner-start btn-gold" id="startScanBtn" onclick="openScanPage()">
           <i class="fa-solid fa-camera"></i>
           <span>Scan QR — Check-In</span>
-        </button>
-        <button class="btn-scanner-stop btn-gold-outline hidden" id="stopScanBtn" onclick="stopQRScan()">
-          <i class="fa-solid fa-stop"></i>
-          <span>Cancel</span>
         </button>
       </div>
 
@@ -395,7 +368,6 @@
   ═══════════════════════════════════════════ -->
   <script src="assets/js/app.js"></script>
   <script src="assets/js/gps.js"></script>
-  <script src="assets/js/qr-scanner.js"></script>
 
   <script>
     // ── Auth guard ───────────────────────────
@@ -480,7 +452,9 @@
             // Checked in, not checked out → next scan = check-out
             checkoutBtn.classList.add('hidden'); // hide manual fallback
             startBtn.disabled = false;
+            startBtn.style.opacity = '';
             startBtn.className = 'btn-scanner-start btn-checkout-scan';
+            startBtn.onclick = openScanPage;
             startBtn.innerHTML =
               '<i class="fa-solid fa-door-open"></i><span>Scan QR — Check-Out</span>';
           } else {
@@ -502,8 +476,9 @@
           alreadyDiv.classList.add('hidden');
           checkoutBtn.classList.add('hidden');
           startBtn.disabled = false;
-          startBtn.className = 'btn-scanner-start btn-gold';
           startBtn.style.opacity = '';
+          startBtn.className = 'btn-scanner-start btn-gold';
+          startBtn.onclick = openScanPage;
           startBtn.innerHTML = '<i class="fa-solid fa-camera"></i><span>Scan QR — Check-In</span>';
           document.getElementById('scannerInstructions').style.opacity = '';
         }
@@ -550,11 +525,6 @@
         btn.innerHTML = '<i class="fa-solid fa-door-open"></i> অফিস থেকে বের হচ্ছি — Check-Out';
       }
     }
-
-    // Called by QR scanner after successful checkout scan
-    window.onScanCheckout = function(checkOutTime) {
-      checkTodayStatus();
-    };
 
     // ── Checkout success popup ────────────────
     function showCheckoutPopup(checkOutTime) {
@@ -781,12 +751,13 @@
       document.getElementById('errorPopup').classList.remove('show');
     }
 
+    // ── Open dedicated scan page ─────────────
+    function openScanPage() {
+      window.location.href = 'scan.html';
+    }
+
     // ── Logout ────────────────────────────────
     function empLogout() {
-      // Stop scanner if running
-      if (window.empQRScanner) {
-        try { window.empQRScanner.stop(); } catch(e) {}
-      }
       sessionStorage.removeItem('employeeAuth');
       window.location.href = 'index.html';
     }

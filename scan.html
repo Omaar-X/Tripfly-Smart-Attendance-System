@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#040406" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>QR Scan | Trip Fly BD</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    .hidden { display: none !important; }
+
+    :root {
+      --gold:        #D4AF37;
+      --gold-glow:   rgba(212,175,55,0.25);
+      --gold-border: rgba(212,175,55,0.3);
+      --gold-pale:   rgba(212,175,55,0.08);
+      --bg:          #040406;
+      --glass-bg:    rgba(10,10,18,0.88);
+      --glass-bdr:   rgba(212,175,55,0.18);
+      --text-pri:    #f0ede8;
+      --text-sec:    #a89f94;
+      --text-muted:  #5a5550;
+      --green:       #22c55e;
+      --amber:       #f59e0b;
+      --red:         #ef4444;
+      --teal:        #63cab7;
+    }
+
+    html, body {
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text-pri);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* ══════════════════════════
+       PAGE SHELL
+    ══════════════════════════ */
+    .scan-page {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* ══════════════════════════
+       HEADER
+    ══════════════════════════ */
+    .s-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      padding-top: max(10px, env(safe-area-inset-top));
+      background: rgba(4,4,6,0.96);
+      border-bottom: 1px solid var(--glass-bdr);
+      flex-shrink: 0;
+    }
+
+    .s-hdr__brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .s-hdr__brand img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 6px rgba(212,175,55,0.45));
+    }
+
+    .s-hdr__brand-name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .s-hdr__back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--gold-border);
+      background: var(--gold-pale);
+      color: var(--gold);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .s-hdr__back:active { background: rgba(212,175,55,0.18); }
+
+    /* ══════════════════════════
+       MODE BANNER
+    ══════════════════════════ */
+    .s-mode {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 7px 16px;
+      background: rgba(212,175,55,0.05);
+      border-bottom: 1px solid rgba(212,175,55,0.1);
+      flex-shrink: 0;
+    }
+    .s-mode.co { background: rgba(99,202,183,0.05); border-bottom-color: rgba(99,202,183,0.12); }
+
+    .s-mode__dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--gold);
+      animation: pulse 2s ease infinite;
+      flex-shrink: 0;
+    }
+    .s-mode.co .s-mode__dot { background: var(--teal); }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0.4; transform:scale(0.65); }
+    }
+
+    .s-mode__text {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 0.03em;
+    }
+    .s-mode.co .s-mode__text { color: var(--teal); }
+
+    .s-mode__emp {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    /* ══════════════════════════
+       GPS STATUS CHIP
+       (informational only — never blocks attendance)
+    ══════════════════════════ */
+    .gps-chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 4px 12px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      flex-shrink: 0;
+    }
+    .gps-chip.ok     { color: var(--green); background: rgba(34,197,94,0.04); }
+    .gps-chip.err    { color: var(--text-muted); }
+    .gps-chip.hidden { display: none !important; }
+
+    /* ══════════════════════════
+       CONTENT AREA
+       min-height:0 is CRITICAL for nested flex
+    ══════════════════════════ */
+    .s-content {
+      flex: 1;
+      min-height: 0;        /* prevents flex child from overflowing */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Loading ── */
+    .s-loading {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .s-loading i { font-size: 2.2rem; color: var(--gold); animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .s-loading span { font-size: 0.88rem; color: var(--text-muted); }
+
+    /* ── Already done ── */
+    .s-done {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 24px;
+      gap: 16px;
+      text-align: center;
+    }
+
+    .s-done__ring {
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      border: 2px solid rgba(34,197,94,0.4);
+      background: rgba(34,197,94,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.6rem; color: var(--green);
+    }
+
+    .s-done__title { font-size: 1.3rem; font-weight: 700; }
+    .s-done__sub   { font-size: 0.86rem; color: var(--text-sec); max-width: 280px; line-height: 1.6; }
+
+    .s-done__info {
+      background: rgba(34,197,94,0.07);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 14px;
+      padding: 14px 20px;
+      width: 100%; max-width: 300px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .s-done__row {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.82rem;
+    }
+    .s-done__row span:first-child { color: var(--text-muted); }
+    .s-done__row span:last-child  { font-weight: 600; color: var(--text-pri); }
+
+    .s-done__back {
+      margin-top: 6px; padding: 13px 36px;
+      border-radius: 999px;
+      border: 1px solid var(--gold-border);
+      background: var(--gold-pale);
+      color: var(--gold);
+      font-family: inherit; font-size: 0.92rem; font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .s-done__back:active { background: rgba(212,175,55,0.18); }
+
+    /* ── Start screen ── */
+    .s-start {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 24px;
+      gap: 16px;
+    }
+
+    .s-start__icon {
+      width: 96px; height: 96px;
+      border-radius: 50%;
+      border: 2px solid var(--gold-border);
+      background: var(--gold-pale);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.7rem; color: var(--gold);
+    }
+    .s-start__icon.co { border-color: rgba(99,202,183,0.3); background: rgba(99,202,183,0.07); color: var(--teal); }
+
+    .s-start__title { font-size: 1.3rem; font-weight: 700; text-align: center; }
+    .s-start__sub   { font-size: 0.84rem; color: var(--text-sec); text-align: center; max-width: 290px; line-height: 1.6; }
+
+    .s-start__steps {
+      width: 100%; max-width: 300px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--glass-bdr);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .s-start__step {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 0.79rem; color: var(--text-sec); line-height: 1.4;
+    }
+    .s-start__step i { width: 18px; text-align: center; color: var(--gold); font-size: 0.74rem; flex-shrink: 0; margin-top: 2px; }
+
+    .s-start__btn {
+      padding: 16px 44px; border-radius: 999px; border: none;
+      background: linear-gradient(135deg, #D4AF37, #a88820);
+      color: #000; font-size: 1rem; font-weight: 700; font-family: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 4px 28px var(--gold-glow);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .s-start__btn.co { background: linear-gradient(135deg, #3a9e8c, #2d7a6b); color: #fff; box-shadow: 0 4px 28px rgba(99,202,183,0.3); }
+    .s-start__btn:active { transform: scale(0.96); box-shadow: none; }
+
+    /* ══════════════════════════
+       CAMERA VIEW
+       KEY FIX: min-height:0 prevents flex collapse
+    ══════════════════════════ */
+    .s-camera {
+      flex: 1;
+      min-height: 0;          /* ← critical */
+      position: relative;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* html5-qrcode container fills parent */
+    #qrReader {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Force the scan region div to fill */
+    #qrReader__scan_region {
+      border: none !important;
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
+      overflow: hidden !important;
+    }
+
+    /* Force video to fill and cover */
+    #qrReader video,
+    #qrReader__scan_region video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+    }
+
+    /* Hide all html5-qrcode default chrome */
+    #qrReader__dashboard,
+    #qrReader__header_message,
+    #qrReader__status_span,
+    #qrReader__filescan_input { display: none !important; }
+
+    /* Hide the default scan box border (we use our own) */
+    #qrReader__scan_region img { display: none !important; }
+
+    /* ── Our custom scan frame overlay ── */
+    .s-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Dark vignette to help focus attention */
+    .s-overlay::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 68% 60% at 50% 50%, transparent 38%, rgba(0,0,0,0.65) 75%);
+    }
+
+    .s-frame {
+      --c: var(--gold);
+      width: min(260px, 68vw);
+      height: min(260px, 68vw);
+      position: relative;
+    }
+    .s-frame.co { --c: var(--teal); }
+
+    .s-corner {
+      position: absolute;
+      width: 28px; height: 28px;
+      border-color: var(--c);
+      border-style: solid;
+      border-width: 0;
+      filter: drop-shadow(0 0 5px var(--c));
+    }
+    .s-corner--tl { top:0; left:0;  border-top-width:3px;    border-left-width:3px;   border-radius:4px 0 0 0; }
+    .s-corner--tr { top:0; right:0; border-top-width:3px;    border-right-width:3px;  border-radius:0 4px 0 0; }
+    .s-corner--bl { bottom:0; left:0;  border-bottom-width:3px; border-left-width:3px;  border-radius:0 0 0 4px; }
+    .s-corner--br { bottom:0; right:0; border-bottom-width:3px; border-right-width:3px; border-radius:0 0 4px 0; }
+
+    .s-scan-line {
+      position: absolute;
+      left: 6px; right: 6px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--c), transparent);
+      box-shadow: 0 0 10px var(--c);
+      animation: scanMove 2s ease-in-out infinite;
+    }
+    @keyframes scanMove {
+      0%   { top: 6px; }
+      50%  { top: calc(100% - 6px); }
+      100% { top: 6px; }
+    }
+
+    /* ── Processing overlay (while API call in progress) ── */
+    .s-proc {
+      position: absolute;
+      inset: 0;
+      background: rgba(4,4,6,0.88);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .s-proc.on { opacity: 1; pointer-events: all; }
+    .s-proc i  { font-size: 2.4rem; color: var(--gold); animation: spin 0.9s linear infinite; }
+    .s-proc.co i { color: var(--teal); }
+    .s-proc span { font-size: 0.95rem; font-weight: 600; color: var(--text-pri); }
+
+    /* ══════════════════════════
+       BOTTOM HINT BAR
+    ══════════════════════════ */
+    .s-bottom {
+      flex-shrink: 0;
+      padding: 11px 16px;
+      padding-bottom: max(11px, env(safe-area-inset-bottom));
+      background: rgba(4,4,6,0.95);
+      border-top: 1px solid var(--glass-bdr);
+      text-align: center;
+    }
+
+    .s-bottom__hint {
+      font-size: 0.82rem; color: var(--text-sec);
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .s-bottom__hint i     { color: var(--gold); }
+    .s-bottom__hint.co i  { color: var(--teal); }
+
+    .s-bottom__emp {
+      margin-top: 4px; font-size: 0.74rem; color: var(--text-muted);
+    }
+    .s-bottom__emp strong { color: var(--text-sec); font-weight: 500; }
+
+    /* ══════════════════════════
+       ERROR BANNER
+    ══════════════════════════ */
+    .s-err {
+      position: absolute;
+      left: 14px; right: 14px; bottom: 16px;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.35);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex; align-items: flex-start; gap: 10px;
+      z-index: 30;
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(14px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .s-err i.icon { color: var(--red); flex-shrink: 0; padding-top: 1px; }
+    .s-err .msg   { font-size: 0.82rem; color: var(--text-pri); flex: 1; line-height: 1.5; }
+    .s-err .cls   { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0; flex-shrink: 0; }
+
+    /* ══════════════════════════
+       RESULT OVERLAY
+    ══════════════════════════ */
+    .s-result {
+      position: fixed; inset: 0;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      background: rgba(4,4,6,0.98);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100;
+      opacity: 0; transform: scale(0.96);
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .s-result.show { opacity: 1; transform: scale(1); pointer-events: all; }
+
+    .s-result__ring {
+      width: 84px; height: 84px; border-radius: 50%;
+      border: 2.5px solid var(--gold);
+      background: rgba(212,175,55,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; color: var(--gold);
+      margin-bottom: 16px;
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .s-result__ring.co { border-color: var(--teal); background: rgba(99,202,183,0.08); color: var(--teal); }
+
+    @keyframes popIn {
+      from { transform: scale(0.3); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .s-result__title { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; text-align: center; }
+    .s-result__sub   { font-size: 0.83rem; color: var(--text-sec); text-align: center; margin-bottom: 16px; }
+
+    .s-result__pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 20px; border-radius: 999px;
+      font-size: 0.83rem; font-weight: 700;
+      margin-bottom: 20px; letter-spacing: 0.04em;
+    }
+    .s-result__pill--present  { background: rgba(34,197,94,0.14);  color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+    .s-result__pill--late     { background: rgba(245,158,11,0.14); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+    .s-result__pill--checkout { background: rgba(99,202,183,0.14); color: var(--teal);  border: 1px solid rgba(99,202,183,0.3); }
+
+    .s-result__card {
+      width: 100%; max-width: 340px;
+      background: rgba(212,175,55,0.04);
+      border: 1px solid var(--glass-bdr);
+      border-radius: 16px; padding: 16px;
+      display: flex; flex-direction: column; gap: 13px;
+      margin-bottom: 20px;
+    }
+    .s-result__card.co { background: rgba(99,202,183,0.04); border-color: rgba(99,202,183,0.2); }
+
+    .s-result__row { display: flex; align-items: center; gap: 12px; }
+    .s-result__row i { width: 20px; text-align: center; color: var(--gold); font-size: 0.87rem; flex-shrink: 0; }
+    .s-result__card.co .s-result__row i { color: var(--teal); }
+
+    .s-result__lbl { display: block; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 1px; }
+    .s-result__val { font-size: 0.92rem; font-weight: 600; color: var(--text-pri); }
+    .s-result__val.big { font-size: 1.22rem; color: var(--gold); }
+    .s-result__card.co .s-result__val.big { color: var(--teal); }
+
+    .s-result__btn {
+      width: 100%; max-width: 340px; padding: 15px;
+      border-radius: 999px; border: none;
+      background: linear-gradient(135deg, #D4AF37, #a88820);
+      color: #000; font-size: 1rem; font-weight: 700; font-family: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .s-result__btn.co { background: linear-gradient(135deg, #3a9e8c, #2d7a6b); color: #fff; }
+    .s-result__btn:active { transform: scale(0.97); }
+
+    .s-result__countdown { margin-top: 10px; font-size: 0.74rem; color: var(--text-muted); }
+
+    /* Toast container */
+    .toast-container { position: fixed; bottom: 20px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="scan-page" id="scanPage">
+
+  <!-- HEADER -->
+  <header class="s-hdr">
+    <div class="s-hdr__brand">
+      <img src="assets/images/logo.png" alt="Trip Fly BD" />
+      <span class="s-hdr__brand-name">Trip Fly BD</span>
+    </div>
+    <button class="s-hdr__back" onclick="goBack()">
+      <i class="fa-solid fa-arrow-left"></i> ফিরুন
+    </button>
+  </header>
+
+  <!-- MODE BANNER -->
+  <div class="s-mode" id="modeBanner">
+    <span class="s-mode__dot"></span>
+    <span class="s-mode__text" id="modeText">লোড হচ্ছে…</span>
+    <span class="s-mode__emp" id="modeEmp"></span>
+  </div>
+
+  <!-- GPS STATUS (only shown for check-in) -->
+  <div class="gps-chip hidden" id="gpsChip">
+    <i class="fa-solid fa-circle-notch fa-spin" id="gpsChipIcon"></i>
+    <span id="gpsChipText">GPS acquiring…</span>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="s-content" id="sContent">
+
+    <!-- State: Loading -->
+    <div class="s-loading" id="stateLoading">
+      <i class="fa-solid fa-circle-notch"></i>
+      <span>Attendance status চেক করা হচ্ছে…</span>
+    </div>
+
+    <!-- State: Both done -->
+    <div class="s-done hidden" id="stateDone">
+      <div class="s-done__ring"><i class="fa-solid fa-circle-check"></i></div>
+      <h2 class="s-done__title">আজকের Attendance সম্পন্ন!</h2>
+      <p class="s-done__sub">Check-In এবং Check-Out দুটোই হয়ে গেছে। আগামীকাল দেখা হবে।</p>
+      <div class="s-done__info" id="doneInfo"></div>
+      <button class="s-done__back" onclick="goBack()">
+        <i class="fa-solid fa-arrow-left"></i> Dashboard এ ফিরুন
+      </button>
+    </div>
+
+    <!-- State: Start (before camera) -->
+    <div class="s-start hidden" id="stateStart">
+      <div class="s-start__icon" id="startIcon"><i class="fa-solid fa-qrcode"></i></div>
+      <h2 class="s-start__title" id="startTitle">Check-In করুন</h2>
+      <p class="s-start__sub" id="startSub">অফিসের স্ক্রিনে থাকা QR code scan করুন।</p>
+      <div class="s-start__steps" id="startSteps">
+        <div class="s-start__step">
+          <i class="fa-solid fa-camera"></i>
+          Camera চালু করুন এবং QR code এর দিকে ধরুন — যেকোনো জায়গায় ধরলেই scan হবে
+        </div>
+        <div class="s-start__step" id="gpsStep">
+          <i class="fa-solid fa-location-dot"></i>
+          Location পাওয়া গেলে attendance record এ log হবে (না পেলেও চলবে)
+        </div>
+        <div class="s-start__step">
+          <i class="fa-solid fa-circle-check"></i>
+          Scan হলে Attendance automatically mark হয়ে যাবে
+        </div>
+      </div>
+      <button class="s-start__btn" id="startBtn" onclick="launchCamera()">
+        <i class="fa-solid fa-camera"></i>
+        <span id="startBtnText">Camera চালু করুন</span>
+      </button>
+    </div>
+
+    <!-- State: Camera active
+         IMPORTANT: this div is NOT hidden initially via class —
+         we use visibility+height to hide it so html5-qrcode can
+         read its dimensions. We swap to proper display in JS. -->
+    <div class="s-camera hidden" id="stateCamera">
+      <!-- html5-qrcode renders its video here -->
+      <div id="qrReader"></div>
+
+      <!-- Our scan frame overlay (visual only, doesn't affect detection) -->
+      <div class="s-overlay">
+        <div class="s-frame" id="scanFrame">
+          <div class="s-corner s-corner--tl"></div>
+          <div class="s-corner s-corner--tr"></div>
+          <div class="s-corner s-corner--bl"></div>
+          <div class="s-corner s-corner--br"></div>
+          <div class="s-scan-line"></div>
+        </div>
+      </div>
+
+      <!-- Processing overlay -->
+      <div class="s-proc" id="sProc">
+        <i class="fa-solid fa-circle-notch"></i>
+        <span id="procText">Attendance verify হচ্ছে…</span>
+      </div>
+    </div>
+
+  </div><!-- /.s-content -->
+
+  <!-- BOTTOM HINT (only visible when camera is active) -->
+  <div class="s-bottom hidden" id="sBottom">
+    <p class="s-bottom__hint" id="bottomHint">
+      <i class="fa-solid fa-camera-rotate"></i>
+      QR code যেকোনো জায়গায় ধরুন — full screen scan হচ্ছে
+    </p>
+    <p class="s-bottom__emp">
+      <strong id="bottomName">—</strong> &nbsp;·&nbsp; <span id="bottomId">—</span>
+    </p>
+  </div>
+
+</div><!-- /.scan-page -->
+
+<!-- RESULT OVERLAY -->
+<div class="s-result" id="resultOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="s-result__ring" id="resultRing">
+    <i id="resultRingIcon" class="fa-solid fa-circle-check"></i>
+  </div>
+  <h2 class="s-result__title" id="resultTitle">Attendance Marked!</h2>
+  <p class="s-result__sub"   id="resultSub">সফলভাবে সম্পন্ন হয়েছে</p>
+  <div class="s-result__pill" id="resultPill">
+    <i id="resultPillIcon" class="fa-solid fa-circle-check"></i>
+    <span id="resultPillText">Present</span>
+  </div>
+  <div class="s-result__card" id="resultCard"></div>
+  <button class="s-result__btn" id="resultBtn" onclick="goBack()">
+    <i class="fa-solid fa-arrow-left"></i> Dashboard এ ফিরুন
+  </button>
+  <p class="s-result__countdown" id="resultCountdown"></p>
+</div>
+
+<!-- Toast container (app.js showToast uses this) -->
+<div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<script src="assets/js/app.js"></script>
+<script src="assets/js/gps.js"></script>
+<script>
+'use strict';
+
+/* ── Auth guard ── */
+let CURRENT_EMPLOYEE = null;
+(function () {
+  const raw = sessionStorage.getItem('employeeAuth');
+  if (!raw) { window.location.href = 'index.html'; return; }
+  try {
+    const d = JSON.parse(raw);
+    if (d.role !== 'employee') { window.location.href = 'index.html'; return; }
+    CURRENT_EMPLOYEE = d.employee;
+  } catch { window.location.href = 'index.html'; }
+})();
+
+/* ── State ── */
+let _mode        = 'checkin';  // 'checkin' | 'checkout'
+let _qrCode      = null;
+let _isBusy      = false;
+let _countdownId = null;
+
+/* ════════════════════════════════
+   GPS MANAGEMENT
+   Start GPS as early as possible so
+   it's ready when QR is scanned.
+════════════════════════════════ */
+let _gpsReady = false;
+
+function startGPS() {
+  if (!window.GPSModule) return;
+  updateGpsChip('acquiring');
+
+  GPSModule.init(
+    (pos) => {
+      _gpsReady = true;
+      updateGpsChip('ok', pos.accuracy);
+    },
+    (msg) => {
+      _gpsReady = false;
+      updateGpsChip('err', null, msg);
+    }
+  );
+}
+
+function updateGpsChip(state, accuracy) {
+  const chip = document.getElementById('gpsChip');
+  const icon = document.getElementById('gpsChipIcon');
+  const text = document.getElementById('gpsChipText');
+
+  if (_mode !== 'checkin') { chip.classList.add('hidden'); return; }
+
+  chip.classList.remove('hidden', 'ok', 'err');
+
+  if (state === 'ok') {
+    chip.classList.add('ok');
+    icon.className = 'fa-solid fa-location-dot';
+    text.textContent = accuracy
+      ? `Location recorded (±${Math.round(accuracy)}m)`
+      : 'Location recorded';
+  } else if (state === 'err') {
+    chip.classList.add('err');
+    icon.className = 'fa-solid fa-location-slash';
+    /* Just inform, no blocking — attendance will still work */
+    text.textContent = 'Location পাওয়া যায়নি — attendance হবে (location ছাড়া)';
+  } else {
+    icon.className = 'fa-solid fa-circle-notch fa-spin';
+    text.textContent = 'Location detecting…';
+  }
+}
+
+/* ════════════════════════════════
+   UI HELPERS
+════════════════════════════════ */
+function showState(name) {
+  ['stateLoading', 'stateDone', 'stateStart', 'stateCamera'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  document.getElementById('state' + name).classList.remove('hidden');
+
+  const isCamera = name === 'Camera';
+  document.getElementById('sBottom').classList.toggle('hidden', !isCamera);
+  document.getElementById('gpsChip').classList.toggle('hidden', !isCamera && _mode !== 'checkin');
+}
+
+function setModeBanner(mode, extra) {
+  const banner = document.getElementById('modeBanner');
+  const text   = document.getElementById('modeText');
+  const emp    = document.getElementById('modeEmp');
+
+  banner.classList.remove('co');
+
+  if (mode === 'checkin') {
+    text.textContent = 'Check-In Mode';
+  } else if (mode === 'checkout') {
+    banner.classList.add('co');
+    text.textContent = extra ? `Check-Out (ঢুকেছিলেন: ${extra})` : 'Check-Out Mode';
+  } else {
+    text.textContent = 'আজকের Attendance সম্পন্ন ✓';
+  }
+
+  if (CURRENT_EMPLOYEE) emp.textContent = '· ' + CURRENT_EMPLOYEE.name;
+}
+
+function setupStartScreen(mode) {
+  const icon    = document.getElementById('startIcon');
+  const title   = document.getElementById('startTitle');
+  const sub     = document.getElementById('startSub');
+  const btn     = document.getElementById('startBtn');
+  const btnTxt  = document.getElementById('startBtnText');
+  const gpsStep = document.getElementById('gpsStep');
+  const frame   = document.getElementById('scanFrame');
+  const proc    = document.getElementById('sProc');
+
+  if (mode === 'checkout') {
+    icon.className   = 's-start__icon co';
+    icon.innerHTML   = '<i class="fa-solid fa-door-open"></i>';
+    title.textContent = 'Check-Out করুন';
+    sub.textContent   = 'অফিস থেকে বের হওয়ার আগে QR scan করুন।';
+    btn.classList.add('co');
+    btnTxt.textContent = 'Camera চালু করুন';
+    gpsStep.classList.add('hidden');
+    if (frame) frame.classList.add('co');
+    if (proc)  proc.classList.add('co');
+  } else {
+    icon.className   = 's-start__icon';
+    icon.innerHTML   = '<i class="fa-solid fa-qrcode"></i>';
+    title.textContent = 'Check-In করুন';
+    sub.textContent   = 'অফিসে ঢোকার সময় QR scan করুন।';
+    btn.classList.remove('co');
+    btnTxt.textContent = 'Camera চালু করুন';
+    gpsStep.classList.remove('hidden');
+    if (frame) frame.classList.remove('co');
+    if (proc)  proc.classList.remove('co');
+  }
+}
+
+/* ════════════════════════════════
+   NAVIGATION
+════════════════════════════════ */
+function goBack() {
+  if (_countdownId) clearInterval(_countdownId);
+  if (_qrCode) { try { _qrCode.stop(); } catch {} _qrCode = null; }
+  window.location.href = 'employee.html';
+}
+
+/* ════════════════════════════════
+   INIT
+════════════════════════════════ */
+async function initPage() {
+  if (!CURRENT_EMPLOYEE) return;
+
+  document.getElementById('bottomName').textContent = CURRENT_EMPLOYEE.name;
+  document.getElementById('bottomId').textContent   = CURRENT_EMPLOYEE.id;
+
+  try {
+    const result = await API.get({
+      action:     'getAttendance',
+      employeeId: CURRENT_EMPLOYEE.id,
+      date:       getTodayString(),
+    });
+
+    if (result.success && result.data.length > 0) {
+      const rec = result.data[0];
+
+      if (rec.checkOut) {
+        /* Both check-in and check-out done */
+        setModeBanner('done', null);
+        document.getElementById('doneInfo').innerHTML = `
+          <div class="s-done__row"><span>Check-In</span><span>${rec.checkIn || '—'}</span></div>
+          <div class="s-done__row"><span>Check-Out</span><span>${rec.checkOut}</span></div>
+          <div class="s-done__row"><span>Status</span><span>${rec.status || '—'}</span></div>
+        `;
+        showState('Done');
+        return;
+      }
+
+      /* Checked in, not yet out */
+      _mode = 'checkout';
+      setModeBanner('checkout', rec.checkIn);
+      setupStartScreen('checkout');
+
+    } else {
+      /* Not checked in yet */
+      _mode = 'checkin';
+      setModeBanner('checkin', null);
+      setupStartScreen('checkin');
+      startGPS();  /* start GPS early so it's ready */
+    }
+
+    showState('Start');
+
+  } catch {
+    _mode = 'checkin';
+    setModeBanner('checkin', null);
+    setupStartScreen('checkin');
+    startGPS();
+    showState('Start');
+  }
+}
+
+/* ════════════════════════════════
+   LAUNCH CAMERA
+   FIX: show container FIRST, wait for
+   DOM reflow, THEN start html5-qrcode.
+   This ensures the element has real
+   dimensions when the library reads them.
+════════════════════════════════ */
+async function launchCamera() {
+  if (typeof Html5Qrcode === 'undefined') {
+    showErr('QR scanner library লোড হয়নি। Internet check করে page reload করুন।');
+    return;
+  }
+
+  /* Show container first (gives it real dimensions) */
+  showState('Camera');
+
+  /* Update bottom hint */
+  const hint = document.getElementById('bottomHint');
+  if (_mode === 'checkout') {
+    hint.innerHTML = '<i class="fa-solid fa-door-open" style="color:#63cab7"></i> QR scan করুন — full screen scan হচ্ছে';
+    hint.classList.add('co');
+  } else {
+    hint.innerHTML = '<i class="fa-solid fa-camera-rotate"></i> QR code যেকোনো জায়গায় ধরুন — full screen scan হচ্ছে';
+    hint.classList.remove('co');
+  }
+
+  /* Wait two animation frames so the browser can reflow and give
+     #qrReader its actual pixel dimensions before html5-qrcode reads them */
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  try {
+    _qrCode = new Html5Qrcode('qrReader');
+
+    await _qrCode.start(
+      { facingMode: 'environment' },
+      {
+        fps: 25,                          /* FIX: was 10, now 25 for faster detection */
+        /* No qrbox → scans FULL FRAME.
+           This is the key fix for "not scanning immediately":
+           without qrbox restriction, the QR is detected wherever
+           it appears in the camera view, not just in a center box. */
+        showTorchButtonIfSupported:   true,
+        showZoomSliderIfSupported:    true,
+        defaultZoomValueIfSupported:  2,
+        formatsToSupport:             [0],  /* QR_CODE only */
+      },
+      onScanSuccess,
+      () => {}  /* silent per-frame miss callback */
+    );
+
+  } catch (err) {
+    /* Camera failed — go back to start screen */
+    showState('Start');
+    let msg = 'Camera চালু করতে সমস্যা হয়েছে।';
+    if (err.message) {
+      const m = err.message.toLowerCase();
+      if (m.includes('permission') || m.includes('denied'))
+        msg = 'Camera permission দিন। Browser settings → এই site → Camera → Allow করুন।';
+      else if (m.includes('notfound') || m.includes('not found'))
+        msg = 'এই device এ back camera পাওয়া যাচ্ছে না।';
+      else if (m.includes('insecure') || m.includes('https'))
+        msg = 'Camera ব্যবহারের জন্য HTTPS দরকার।';
+    }
+    showErr(msg);
+  }
+}
+
+/* ════════════════════════════════
+   QR DECODE CALLBACK
+════════════════════════════════ */
+async function onScanSuccess(raw) {
+  if (_isBusy) return;
+  _isBusy = true;
+
+  /* Pause scanner while we process */
+  try { if (_qrCode) await _qrCode.pause(true); } catch {}
+
+  /* Show processing overlay */
+  const proc = document.getElementById('sProc');
+  document.getElementById('procText').textContent =
+    _mode === 'checkout' ? 'Check-Out করা হচ্ছে…' : 'Attendance verify হচ্ছে…';
+  proc.classList.add('on');
+
+  try {
+    /* Parse token from QR payload */
+    let token = null;
+    try { token = JSON.parse(raw).token; } catch { token = raw.trim(); }
+    if (!token) throw new Error('QR code টি সঠিক নয়। অফিসের QR code scan করুন।');
+
+    let result;
+
+    if (_mode === 'checkout') {
+      /* ── Check-Out: no GPS required ── */
+      result = await API.post({
+        action:     'checkOut',
+        employeeId: CURRENT_EMPLOYEE.id,
+        qrToken:    token,
+      });
+
+    } else {
+      /* ── Check-In: GPS optional (logged for audit, not required) ── */
+      let latitude = null, longitude = null;
+      const gps = window.GPSModule || null;
+
+      if (gps) {
+        if (gps.hasPosition()) {
+          const p = gps.getPosition();
+          latitude  = p.latitude;
+          longitude = p.longitude;
+        } else {
+          /* Try once with 4s timeout — if it fails, proceed anyway */
+          try {
+            const p = await gps.requestOnce(4000);
+            latitude  = p.latitude;
+            longitude = p.longitude;
+          } catch { /* GPS unavailable — attendance still marked */ }
+        }
+      }
+
+      const body = {
+        action:     'markAttendance',
+        employeeId: CURRENT_EMPLOYEE.id,
+        qrToken:    token,
+        deviceInfo: getDeviceInfo(),
+      };
+      /* Only attach GPS if we actually got it */
+      if (latitude !== null)  body.latitude  = latitude;
+      if (longitude !== null) body.longitude = longitude;
+
+      result = await API.post(body);
+    }
+
+    proc.classList.remove('on');
+
+    if (result.success) {
+      /* Stop camera then show result */
+      try { await _qrCode.stop(); await _qrCode.clear(); } catch {}
+      _qrCode = null;
+      showResult(result);
+    } else {
+      throw new Error(result.message || 'Attendance mark করতে সমস্যা হয়েছে।');
+    }
+
+  } catch (err) {
+    proc.classList.remove('on');
+    showErr(err.message);
+    /* Resume scanner after brief delay */
+    setTimeout(() => {
+      if (_qrCode) try { _qrCode.resume(); } catch {}
+      _isBusy = false;
+    }, 2500);
+    return;
+  }
+
+  _isBusy = false;
+}
+
+/* ════════════════════════════════
+   RESULT OVERLAY
+════════════════════════════════ */
+function showResult(data) {
+  const overlay  = document.getElementById('resultOverlay');
+  const ring     = document.getElementById('resultRing');
+  const ringIcon = document.getElementById('resultRingIcon');
+  const title    = document.getElementById('resultTitle');
+  const sub      = document.getElementById('resultSub');
+  const pill     = document.getElementById('resultPill');
+  const pillIco  = document.getElementById('resultPillIcon');
+  const pillTxt  = document.getElementById('resultPillText');
+  const card     = document.getElementById('resultCard');
+  const btn      = document.getElementById('resultBtn');
+
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('en-BD', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  if (_mode === 'checkout') {
+    ring.classList.add('co');
+    ringIcon.className  = 'fa-solid fa-door-open';
+    title.textContent   = 'Check-Out সম্পন্ন!';
+    sub.textContent     = 'আপনি সফলভাবে অফিস থেকে বের হয়েছেন';
+    pill.className      = 's-result__pill s-result__pill--checkout';
+    pillIco.className   = 'fa-solid fa-door-open';
+    pillTxt.textContent = 'Check-Out';
+    card.classList.add('co');
+    btn.classList.add('co');
+
+    card.innerHTML = `
+      <div class="s-result__row">
+        <i class="fa-solid fa-user"></i>
+        <div><span class="s-result__lbl">Employee</span><span class="s-result__val">${CURRENT_EMPLOYEE.name}</span></div>
+      </div>
+      <div class="s-result__row">
+        <i class="fa-regular fa-calendar"></i>
+        <div><span class="s-result__lbl">তারিখ</span><span class="s-result__val">${dateStr}</span></div>
+      </div>
+      <div class="s-result__row">
+        <i class="fa-solid fa-door-open"></i>
+        <div><span class="s-result__lbl">Check-Out সময়</span><span class="s-result__val big">${data.checkOut || '—'}</span></div>
+      </div>
+    `;
+
+  } else {
+    const late = data.status === 'Late';
+    ring.classList.remove('co');
+    ringIcon.className  = 'fa-solid fa-circle-check';
+    title.textContent   = late ? 'দেরি হয়েছে!' : 'Attendance Marked!';
+    sub.textContent     = late ? 'Check-In হয়েছে কিন্তু দেরি হয়ে গেছে' : 'সফলভাবে Check-In সম্পন্ন হয়েছে';
+    pill.className      = 's-result__pill s-result__pill--' + (late ? 'late' : 'present');
+    pillIco.className   = 'fa-solid fa-' + (late ? 'clock' : 'circle-check');
+    pillTxt.textContent = late ? 'Late' : 'Present';
+    card.classList.remove('co');
+    btn.classList.remove('co');
+
+    card.innerHTML = `
+      <div class="s-result__row">
+        <i class="fa-solid fa-user"></i>
+        <div><span class="s-result__lbl">Employee</span><span class="s-result__val">${data.employeeName || CURRENT_EMPLOYEE.name}</span></div>
+      </div>
+      <div class="s-result__row">
+        <i class="fa-regular fa-calendar"></i>
+        <div><span class="s-result__lbl">তারিখ</span><span class="s-result__val">${data.date || dateStr}</span></div>
+      </div>
+      <div class="s-result__row">
+        <i class="fa-regular fa-clock"></i>
+        <div><span class="s-result__lbl">Check-In সময়</span><span class="s-result__val big">${data.checkIn || '—'}</span></div>
+      </div>
+      ${data.distance !== undefined ? `
+      <div class="s-result__row">
+        <i class="fa-solid fa-location-dot"></i>
+        <div><span class="s-result__lbl">অফিস থেকে দূরত্ব</span><span class="s-result__val">${data.distance} মিটার</span></div>
+      </div>` : ''}
+    `;
+  }
+
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+
+  /* Auto-redirect countdown */
+  let secs = 6;
+  const cd = document.getElementById('resultCountdown');
+  cd.textContent = `${secs} সেকেন্ডে Dashboard এ ফিরে যাবে…`;
+  _countdownId = setInterval(() => {
+    secs--;
+    if (secs <= 0) { clearInterval(_countdownId); goBack(); }
+    else cd.textContent = `${secs} সেকেন্ডে Dashboard এ ফিরে যাবে…`;
+  }, 1000);
+}
+
+/* ════════════════════════════════
+   ERROR BANNER
+════════════════════════════════ */
+function showErr(msg) {
+  document.querySelectorAll('.s-err').forEach(b => b.remove());
+
+  const b = document.createElement('div');
+  b.className = 's-err';
+  /* Replace newlines with <br> for multi-line error messages */
+  const safeMsg = msg.replace(/\n/g, '<br>');
+  b.innerHTML = `
+    <i class="fa-solid fa-circle-xmark icon"></i>
+    <span class="msg">${safeMsg}</span>
+    <button class="cls" onclick="this.parentElement.remove()" aria-label="বন্ধ করুন">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  `;
+
+  const cam = document.getElementById('stateCamera');
+  if (!cam.classList.contains('hidden')) {
+    cam.appendChild(b);
+  } else {
+    document.getElementById('scanPage').appendChild(b);
+  }
+
+  setTimeout(() => { if (b.parentNode) b.remove(); }, 7000);
+}
+
+/* ════════════════════════════════
+   DEVICE INFO
+════════════════════════════════ */
+function getDeviceInfo() {
+  const ua = navigator.userAgent || '';
+  let br = 'Unknown', os = 'Unknown';
+  if (/Chrome\/(\d+)/.test(ua))       br = 'Chrome/'  + ua.match(/Chrome\/(\d+)/)[1];
+  else if (/Firefox\/(\d+)/.test(ua)) br = 'Firefox/' + ua.match(/Firefox\/(\d+)/)[1];
+  else if (/Safari/.test(ua))         br = 'Safari';
+  if (/Android/.test(ua))             os = 'Android';
+  else if (/iPhone|iPad/.test(ua))    os = 'iOS';
+  else if (/Windows/.test(ua))        os = 'Windows';
+  else if (/Mac/.test(ua))            os = 'macOS';
+  return `${br} / ${os}`;
+}
+
+/* ── Back gesture / browser back button ── */
+window.addEventListener('popstate', goBack);
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', initPage);
+</script>
+
+</body>
+</html>

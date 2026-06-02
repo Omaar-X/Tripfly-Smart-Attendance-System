@@ -455,7 +455,7 @@
     // ── Clock ─────────────────────────────────
     function updateReportsClock() {
       document.getElementById('reportsClock').textContent =
-        new Date().toLocaleTimeString('en-BD', { hour12: false });
+        new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     }
     setInterval(updateReportsClock, 1000);
     updateReportsClock();

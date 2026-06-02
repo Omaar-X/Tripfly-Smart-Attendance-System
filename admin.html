@@ -854,7 +854,7 @@
     function updateClock() {
       const now = new Date();
       document.getElementById('liveClock').textContent =
-        now.toLocaleTimeString('en-BD', { hour12: false });
+        now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     }
     setInterval(updateClock, 1000);
     updateClock();

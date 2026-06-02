@@ -402,10 +402,22 @@ async function launchCamera() {
   const hint = document.getElementById('bottomHint');
   if (_mode === 'checkout') { hint.innerHTML = '<i class="fa-solid fa-door-open" style="color:#63cab7"></i> QR scan করুন'; hint.classList.add('co'); }
   else { hint.innerHTML = '<i class="fa-solid fa-camera-rotate"></i> QR code যেকোনো জায়গায় ধরুন'; hint.classList.remove('co'); }
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await new Promise(r => setTimeout(r, 120));
+  const cam = document.getElementById('stateCamera');
+  const qrEl = document.getElementById('qrReader');
+  const camH = cam.offsetHeight;
+  qrEl.style.height = (camH > 0 ? camH : window.innerHeight - 120) + 'px';
   try {
     _qrCode = new Html5Qrcode('qrReader');
     await _qrCode.start({ facingMode: 'environment' }, { fps: 25, showTorchButtonIfSupported: true, showZoomSliderIfSupported: true, defaultZoomValueIfSupported: 2, formatsToSupport: [0] }, onScanSuccess, () => {});
+    setTimeout(() => {
+      const v = qrEl.querySelector('video');
+      if (v) {
+        v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', '');
+        if (v.paused) v.play().catch(() => {});
+      }
+    }, 800);
   } catch (err) {
     let msg;
     const m = (err.message || '').toLowerCase();

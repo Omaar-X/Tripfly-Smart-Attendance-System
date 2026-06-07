@@ -110,7 +110,7 @@
     .s-done__back { margin-top: 6px; padding: 13px 36px; border-radius: 999px; border: 1px solid var(--gold-bdr); background: var(--gold-pale); color: var(--gold); font-family: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
 
     /* Start screen */
-    .s-start { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 18px; }
+    .s-start { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 24px; gap: 18px; }
     .s-start__icon { width: 96px; height: 96px; border-radius: 50%; border: 2px solid var(--gold-bdr); background: var(--gold-pale); display: flex; align-items: center; justify-content: center; font-size: 2.8rem; color: var(--gold); }
     .s-start__icon.co { border-color: rgba(99,202,183,0.3); background: rgba(99,202,183,0.07); color: var(--teal); }
     .s-start__title { font-size: 1.3rem; font-weight: 700; text-align: center; }
@@ -118,6 +118,11 @@
     .s-start__steps { width: 100%; max-width: 300px; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-bdr); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
     .s-start__step { display: flex; align-items: flex-start; gap: 10px; font-size: 0.79rem; color: var(--text-sec); line-height: 1.4; }
     .s-start__step i { width: 18px; text-align: center; color: var(--gold); flex-shrink: 0; margin-top: 2px; }
+    .s-early { width: 100%; max-width: 300px; border: 1px solid rgba(245,158,11,.28); background: rgba(245,158,11,.08); border-radius: 12px; padding: 12px; }
+    .s-early__label { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; color: var(--amber); margin-bottom: 8px; }
+    .s-early textarea { width: 100%; min-height: 86px; resize: vertical; border: 1px solid rgba(245,158,11,.28); border-radius: 8px; background: rgba(0,0,0,.22); color: var(--text-pri); font: inherit; font-size: .84rem; line-height: 1.45; padding: 10px; outline: none; }
+    .s-early textarea:focus { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(245,158,11,.12); }
+    .s-early__hint { margin-top: 7px; font-size: .72rem; color: var(--text-sec); line-height: 1.45; }
     .s-start__btn { padding: 16px 44px; border-radius: 999px; border: none; background: linear-gradient(135deg,#D4AF37,#a88820); color: #000; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 28px var(--gold-glow); -webkit-tap-highlight-color: transparent; }
     .s-start__btn.co { background: linear-gradient(135deg,#3a9e8c,#2d7a6b); color: #fff; box-shadow: 0 4px 28px rgba(99,202,183,.3); }
     .s-start__btn:active { transform: scale(0.96); box-shadow: none; }
@@ -245,6 +250,14 @@
           Scan হলে Attendance automatically mark হয়ে যাবে
         </div>
       </div>
+      <div class="s-early hidden" id="earlyReasonBox">
+        <label class="s-early__label" for="earlyReasonInput">
+          <i class="fa-solid fa-clipboard-list"></i>
+          <span id="reasonBoxLabel">কারণ</span>
+        </label>
+        <textarea id="earlyReasonInput" maxlength="250" placeholder="কারণ লিখুন..."></textarea>
+        <p class="s-early__hint" id="reasonBoxHint">এই কারণটি required।</p>
+      </div>
       <button class="s-start__btn" id="startBtn" onclick="launchCamera()">
         <i class="fa-solid fa-camera"></i>
         <span id="startBtnText">Camera চালু করুন</span>
@@ -312,6 +325,8 @@ let _qrCode = null;
 let _isBusy = false;
 let _countdownId = null;
 let _gpsPos = null;
+let _earlyReasonRequired = false;
+let _reasonType = '';
 
 function tryGetGPS() {
   if (!navigator.geolocation) return;
@@ -348,17 +363,51 @@ function setupStartScreen(mode) {
   const btn = document.getElementById('startBtn');
   const frame = document.getElementById('scanFrame');
   const proc = document.getElementById('sProc');
+  const earlyBox = document.getElementById('earlyReasonBox');
+  const reasonLabel = document.getElementById('reasonBoxLabel');
+  const reasonHint = document.getElementById('reasonBoxHint');
+  const input = document.getElementById('earlyReasonInput');
+  const policy = typeof getAttendancePolicy === 'function' ? getAttendancePolicy() : {};
+  const checkoutNeedsReason = mode === 'checkout' &&
+    (typeof isBeforeCheckoutCutoff === 'function' ? isBeforeCheckoutCutoff() : false);
+  const checkinNeedsReason = mode === 'checkin' &&
+    (typeof isAfterLateCheckinCutoff === 'function' ? isAfterLateCheckinCutoff() : false);
+
+  _earlyReasonRequired = checkoutNeedsReason || checkinNeedsReason;
+  _reasonType = checkoutNeedsReason ? 'early-checkout' : (checkinNeedsReason ? 'late-checkin' : '');
+  if (earlyBox) earlyBox.classList.toggle('hidden', !_earlyReasonRequired);
+  if (input && !_earlyReasonRequired) input.value = '';
+  if (_reasonType === 'early-checkout') {
+    const label = typeof formatTimeLabel === 'function' ? formatTimeLabel(policy.earlyCheckoutCutoffTime) : '6:00 PM';
+    if (reasonLabel) reasonLabel.textContent = `${label} এর আগে বের হওয়ার কারণ`;
+    if (reasonHint) reasonHint.textContent = `${label} এর আগে Check-Out করতে হলে এই কারণটি required।`;
+  } else if (_reasonType === 'late-checkin') {
+    const label = typeof formatTimeLabel === 'function' ? formatTimeLabel(policy.lateCutoffTime) : '10:15 AM';
+    if (reasonLabel) reasonLabel.textContent = `${label} এর পরে ঢোকার কারণ`;
+    if (reasonHint) reasonHint.textContent = `${label} এর পরে Check-In করতে হলে এই কারণটি required।`;
+  }
   if (mode === 'checkout') {
     icon.className = 's-start__icon co'; icon.innerHTML = '<i class="fa-solid fa-door-open"></i>';
-    title.textContent = 'Check-Out করুন'; sub.textContent = 'অফিস থেকে বের হওয়ার আগে QR scan করুন।';
+    title.textContent = 'Check-Out করুন';
+    sub.textContent = _earlyReasonRequired
+      ? '৬টার আগে বের হলে কারণ লিখে QR scan করুন।'
+      : 'অফিস থেকে বের হওয়ার আগে QR scan করুন।';
     btn.classList.add('co'); btn.querySelector('span').textContent = 'Camera চালু করুন';
     if (frame) frame.classList.add('co'); if (proc) proc.classList.add('co');
   } else {
     icon.className = 's-start__icon'; icon.innerHTML = '<i class="fa-solid fa-qrcode"></i>';
-    title.textContent = 'Check-In করুন'; sub.textContent = 'অফিসে ঢোকার সময় QR scan করুন।';
+    title.textContent = 'Check-In করুন';
+    sub.textContent = _earlyReasonRequired
+      ? 'দেরিতে ঢুকলে কারণ লিখে QR scan করুন।'
+      : 'অফিসে ঢোকার সময় QR scan করুন।';
     btn.classList.remove('co'); btn.querySelector('span').textContent = 'Camera চালু করুন';
     if (frame) frame.classList.remove('co'); if (proc) proc.classList.remove('co');
   }
+}
+
+function getEarlyReasonInput() {
+  const input = document.getElementById('earlyReasonInput');
+  return (input?.value || '').replace(/\s+/g, ' ').trim().substring(0, 250);
 }
 
 function goBack() {
@@ -372,6 +421,7 @@ async function initPage() {
   document.getElementById('bottomName').textContent = CURRENT_EMPLOYEE.name;
   document.getElementById('bottomId').textContent = CURRENT_EMPLOYEE.id;
   tryGetGPS();
+  if (typeof loadAttendancePolicySettings === 'function') await loadAttendancePolicySettings(true);
   try {
     const result = await API.get({ action: 'getAttendance', employeeId: CURRENT_EMPLOYEE.id, date: getTodayString() });
     if (result.success && result.data.length > 0) {
@@ -397,6 +447,19 @@ async function initPage() {
 async function launchCamera() {
   if (typeof Html5Qrcode === 'undefined') {
     showErr('QR scanner library লোড হয়নি। Internet check করে reload করুন।'); return;
+  }
+  const needsReasonNow = (_mode === 'checkout' && (typeof isBeforeCheckoutCutoff === 'function' ? isBeforeCheckoutCutoff() : _earlyReasonRequired)) ||
+    (_mode === 'checkin' && (typeof isAfterLateCheckinCutoff === 'function' ? isAfterLateCheckinCutoff() : _earlyReasonRequired));
+  if (needsReasonNow) {
+    const reason = getEarlyReasonInput();
+    if (!reason) {
+      showErr(_mode === 'checkout'
+        ? '৬টার আগে Check-Out করতে হলে কারণ লিখতে হবে।'
+        : '10:15 AM এর পরে Check-In করতে হলে কারণ লিখতে হবে।');
+      document.getElementById('earlyReasonInput')?.focus();
+      return;
+    }
+    _earlyReasonRequired = true;
   }
   showState('Camera');
   const hint = document.getElementById('bottomHint');
@@ -449,10 +512,15 @@ async function onScanSuccess(raw) {
     if (!token) throw new Error('QR code টি সঠিক নয়।');
     let result;
     if (_mode === 'checkout') {
-      result = await API.post({ action: 'checkOut', employeeId: CURRENT_EMPLOYEE.id, qrToken: token });
+      const checkoutPayload = { action: 'checkOut', employeeId: CURRENT_EMPLOYEE.id, qrToken: token };
+      const reason = getEarlyReasonInput();
+      if (reason) checkoutPayload.earlyCheckoutReason = reason;
+      result = await API.post(checkoutPayload);
     } else {
       const payload = { action: 'markAttendance', employeeId: CURRENT_EMPLOYEE.id, qrToken: token, deviceInfo: getDeviceInfo() };
       if (_gpsPos) { payload.latitude = _gpsPos.lat; payload.longitude = _gpsPos.lng; }
+      const reason = getEarlyReasonInput();
+      if (reason) payload.lateCheckInReason = reason;
       result = await API.post(payload);
     }
     proc.classList.remove('on');
@@ -460,6 +528,16 @@ async function onScanSuccess(raw) {
       try { await _qrCode.stop(); await _qrCode.clear(); } catch {}
       _qrCode = null; showResult(result);
     } else {
+      if (result.requireReason) {
+        try { await _qrCode.stop(); await _qrCode.clear(); } catch {}
+        _qrCode = null;
+        _isBusy = false;
+        proc.classList.remove('on');
+        setupStartScreen('checkout');
+        showState('Start');
+        showErr(result.message || 'কারণ লিখতে হবে।');
+        return;
+      }
       throw new Error(result.message || 'Attendance mark করতে সমস্যা হয়েছে।');
     }
   } catch (err) {
@@ -488,7 +566,10 @@ function showResult(data) {
     title.textContent = 'Check-Out সম্পন্ন!'; sub.textContent = 'আপনি সফলভাবে বের হয়েছেন';
     pill.className = 's-result__pill s-result__pill--checkout'; pillIco.className = 'fa-solid fa-door-open'; pillTxt.textContent = 'Check-Out';
     card.classList.add('co'); btn.classList.add('co');
-    card.innerHTML = `<div class="s-result__row"><i class="fa-solid fa-user"></i><div><span class="s-result__lbl">Employee</span><span class="s-result__val">${CURRENT_EMPLOYEE.name}</span></div></div><div class="s-result__row"><i class="fa-regular fa-calendar"></i><div><span class="s-result__lbl">তারিখ</span><span class="s-result__val">${dateStr}</span></div></div><div class="s-result__row"><i class="fa-solid fa-door-open"></i><div><span class="s-result__lbl">Check-Out সময়</span><span class="s-result__val big">${data.checkOut || '—'}</span></div></div>`;
+    const reasonRow = data.earlyCheckoutReason
+      ? `<div class="s-result__row"><i class="fa-solid fa-clipboard-list"></i><div><span class="s-result__lbl">কারণ</span><span class="s-result__val">${escapeHTML(data.earlyCheckoutReason)}</span></div></div>`
+      : '';
+    card.innerHTML = `<div class="s-result__row"><i class="fa-solid fa-user"></i><div><span class="s-result__lbl">Employee</span><span class="s-result__val">${CURRENT_EMPLOYEE.name}</span></div></div><div class="s-result__row"><i class="fa-regular fa-calendar"></i><div><span class="s-result__lbl">তারিখ</span><span class="s-result__val">${dateStr}</span></div></div><div class="s-result__row"><i class="fa-solid fa-door-open"></i><div><span class="s-result__lbl">Check-Out সময়</span><span class="s-result__val big">${data.checkOut || '—'}</span></div></div>${reasonRow}`;
   } else {
     const late = data.status === 'Late';
     ring.classList.remove('co'); ringIcon.className = 'fa-solid fa-circle-check';
@@ -497,7 +578,10 @@ function showResult(data) {
     pill.className = 's-result__pill s-result__pill--' + (late ? 'late' : 'present');
     pillIco.className = 'fa-solid fa-' + (late ? 'clock' : 'circle-check'); pillTxt.textContent = late ? 'Late' : 'Present';
     card.classList.remove('co'); btn.classList.remove('co');
-    card.innerHTML = `<div class="s-result__row"><i class="fa-solid fa-user"></i><div><span class="s-result__lbl">Employee</span><span class="s-result__val">${data.employeeName || CURRENT_EMPLOYEE.name}</span></div></div><div class="s-result__row"><i class="fa-regular fa-calendar"></i><div><span class="s-result__lbl">তারিখ</span><span class="s-result__val">${data.date || dateStr}</span></div></div><div class="s-result__row"><i class="fa-regular fa-clock"></i><div><span class="s-result__lbl">Check-In সময়</span><span class="s-result__val big">${data.checkIn || '—'}</span></div></div>`;
+    const lateReasonRow = data.lateCheckInReason
+      ? `<div class="s-result__row"><i class="fa-solid fa-clipboard-list"></i><div><span class="s-result__lbl">কারণ</span><span class="s-result__val">${escapeHTML(data.lateCheckInReason)}</span></div></div>`
+      : '';
+    card.innerHTML = `<div class="s-result__row"><i class="fa-solid fa-user"></i><div><span class="s-result__lbl">Employee</span><span class="s-result__val">${data.employeeName || CURRENT_EMPLOYEE.name}</span></div></div><div class="s-result__row"><i class="fa-regular fa-calendar"></i><div><span class="s-result__lbl">তারিখ</span><span class="s-result__val">${data.date || dateStr}</span></div></div><div class="s-result__row"><i class="fa-regular fa-clock"></i><div><span class="s-result__lbl">Check-In সময়</span><span class="s-result__val big">${data.checkIn || '—'}</span></div></div>${lateReasonRow}`;
   }
   overlay.classList.add('show'); overlay.setAttribute('aria-hidden', 'false');
   let secs = 6;

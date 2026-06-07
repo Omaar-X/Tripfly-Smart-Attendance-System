@@ -84,6 +84,10 @@
         <i class="fa-solid fa-chart-line"></i>
         <span>Analytics</span>
       </a>
+      <a class="sidebar__link" href="#" data-section="ranking" onclick="navigateTo('ranking', this)">
+        <i class="fa-solid fa-ranking-star"></i>
+        <span>Ranking</span>
+      </a>
       <a class="sidebar__link" href="#" data-section="settings" onclick="navigateTo('settings', this)">
         <i class="fa-solid fa-sliders"></i>
         <span>Settings</span>
@@ -403,15 +407,18 @@
                   <th>Att. ID</th>
                   <th>Employee</th>
                   <th>Date</th>
+                  <th>Day</th>
                   <th>Check-In</th>
                   <th>Check-Out</th>
                   <th>Status</th>
+                  <th>Late Reason</th>
+                  <th>Early Reason</th>
                   <th>GPS</th>
                   <th>Device</th>
                 </tr>
               </thead>
               <tbody id="attTableBody">
-                <tr><td colspan="9" class="table-empty">
+                <tr><td colspan="12" class="table-empty">
                   <i class="fa-solid fa-circle-notch fa-spin"></i> Loading records…
                 </td></tr>
               </tbody>
@@ -601,6 +608,47 @@
       </section><!-- /#section-analytics -->
 
       <!-- ══════════════════════════════
+           SECTION: RANKING
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-ranking">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-ranking-star gold-text"></i>
+            Employee Ranking
+          </h2>
+          <p class="section-subtitle">Monthly ranking from attendance, check-in and check-out completion</p>
+        </div>
+
+        <div class="glass-card filter-bar">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-regular fa-calendar"></i> Month</label>
+            <input type="month" id="rankingMonth" class="filter-input" onchange="loadAdminRanking()" />
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="loadAdminRanking()">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card" style="padding:1.25rem">
+          <p class="ranking-note" id="adminRankingSummary">
+            Top 1 employee will receive a reward gift at month end.
+          </p>
+        </div>
+
+        <div class="glass-card" style="padding:1.25rem;margin-top:1rem">
+          <div class="ranking-list" id="adminRankingList">
+            <div class="emp-grid__loading">
+              <i class="fa-solid fa-circle-notch fa-spin gold-text"></i>
+            </div>
+          </div>
+        </div>
+
+      </section><!-- /#section-ranking -->
+
+      <!-- ══════════════════════════════
            SECTION: SETTINGS
       ══════════════════════════════ -->
       <section class="section hidden" id="section-settings">
@@ -629,6 +677,16 @@
               <div class="form-field">
                 <label class="form-label">Office Start Time</label>
                 <input type="time" id="sStartTime" class="form-input" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Late Check-In After</label>
+                <input type="time" id="sLateCutoff" class="form-input" />
+                <span class="form-field__line"></span>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Early Check-Out Before</label>
+                <input type="time" id="sCheckoutCutoff" class="form-input" />
                 <span class="form-field__line"></span>
               </div>
               <div class="form-field">
@@ -870,6 +928,7 @@
       'attendance':  'Attendance Records',
       'employees':   'Employee Management',
       'analytics':   'Analytics',
+      'ranking':     'Employee Ranking',
       'settings':    'Settings',
     };
 
@@ -903,6 +962,7 @@
         case 'attendance':   loadAttendanceTable({}); break;
         case 'employees':    loadEmployees(); loadPendingEmployees(); break;
         case 'analytics':    loadCharts();        break;
+        case 'ranking':      loadAdminRanking();   break;
         case 'settings':     loadSettings();      break;
       }
     }
@@ -1064,6 +1124,8 @@
       const now = new Date();
       document.getElementById('chartMonth').value = now.getMonth() + 1;
       document.getElementById('chartYear').value  = now.getFullYear();
+      const rankingMonth = document.getElementById('rankingMonth');
+      if (rankingMonth) rankingMonth.value = getCurrentMonthPrefix(now);
 
       // Set filter date to today
       document.getElementById('filterDate').value  = getTodayString();

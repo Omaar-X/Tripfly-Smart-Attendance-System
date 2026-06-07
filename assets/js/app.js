@@ -27,6 +27,10 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyS1T7C1Y6w8Gzv
 // apps_script.gs এর API_SECRET এর সাথে এটা EXACTLY মিলতে হবে।
 // এই key ছাড়া কেউ আপনার data access করতে পারবে না।
 const API_SECRET = 'TripFlyBD-2024-SecureKey-Omar';  // ← apps_script.gs এর মতো রাখুন
+const DEFAULT_OFFICE_START_TIME = '10:00';
+const DEFAULT_LATE_CUTOFF_TIME = '10:15';
+const EARLY_CHECKOUT_CUTOFF_TIME = '18:00';
+let _attendancePolicyCache = null;
 
 
 /* ============================================================
@@ -169,6 +173,15 @@ function removeToast(toast) {
   setTimeout(() => { if (toast.parentNode) toast.remove(); }, 500);
 }
 
+function escapeHTML(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 
 /* ============================================================
    CSV DOWNLOAD UTILITY
@@ -213,6 +226,76 @@ function getTodayString() {
     String(now.getMonth() + 1).padStart(2, '0'),
     String(now.getDate()).padStart(2, '0'),
   ].join('-');
+}
+
+function normalizeTimeValue(value, fallback) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2})(?::(\d{1,2}))?/);
+  if (!match) return fallback;
+  const h = Math.max(0, Math.min(23, parseInt(match[1], 10)));
+  const m = Math.max(0, Math.min(59, parseInt(match[2] || '0', 10)));
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function getAttendancePolicy() {
+  return _attendancePolicyCache || {
+    officeStartTime: DEFAULT_OFFICE_START_TIME,
+    lateCutoffTime: DEFAULT_LATE_CUTOFF_TIME,
+    earlyCheckoutCutoffTime: EARLY_CHECKOUT_CUTOFF_TIME,
+  };
+}
+
+async function loadAttendancePolicySettings(force = false) {
+  if (_attendancePolicyCache && !force) return _attendancePolicyCache;
+  try {
+    const result = await API.get({ action: 'getSettings' });
+    const s = result.success ? (result.data || {}) : {};
+    _attendancePolicyCache = {
+      officeStartTime: normalizeTimeValue(s.OFFICE_START_TIME, DEFAULT_OFFICE_START_TIME),
+      lateCutoffTime: normalizeTimeValue(s.LATE_CUTOFF_TIME, DEFAULT_LATE_CUTOFF_TIME),
+      earlyCheckoutCutoffTime: normalizeTimeValue(s.EARLY_CHECKOUT_CUTOFF_TIME, EARLY_CHECKOUT_CUTOFF_TIME),
+    };
+  } catch {
+    _attendancePolicyCache = getAttendancePolicy();
+  }
+  return _attendancePolicyCache;
+}
+
+function timeToMinutes(value, fallback) {
+  const [h, m] = normalizeTimeValue(value, fallback).split(':').map(Number);
+  return h * 60 + m;
+}
+
+function isBeforeCheckoutCutoff(cutoff = getAttendancePolicy().earlyCheckoutCutoffTime, now = new Date()) {
+  const cutoffMinutes = timeToMinutes(cutoff, EARLY_CHECKOUT_CUTOFF_TIME);
+  return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() < cutoffMinutes * 60;
+}
+
+function isAfterLateCheckinCutoff(cutoff = getAttendancePolicy().lateCutoffTime, now = new Date()) {
+  const cutoffMinutes = timeToMinutes(cutoff, DEFAULT_LATE_CUTOFF_TIME);
+  return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() > cutoffMinutes * 60;
+}
+
+function formatTimeLabel(timeStr) {
+  const normalized = normalizeTimeValue(timeStr, '00:00');
+  const [h, m] = normalized.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+function requestEarlyCheckoutReason() {
+  if (!isBeforeCheckoutCutoff()) return '';
+  const label = formatTimeLabel(getAttendancePolicy().earlyCheckoutCutoffTime);
+  const reason = window.prompt(`${label} এর আগে Check-Out করতে হলে কারণ লিখুন:`);
+  return (reason || '').replace(/\s+/g, ' ').trim().substring(0, 250);
+}
+
+function requestLateCheckInReason() {
+  if (!isAfterLateCheckinCutoff()) return '';
+  const label = formatTimeLabel(getAttendancePolicy().lateCutoffTime);
+  const reason = window.prompt(`${label} এর পরে Check-In করতে হলে কারণ লিখুন:`);
+  return (reason || '').replace(/\s+/g, ' ').trim().substring(0, 250);
 }
 
 // Returns current time as 'HH:MM:SS'
@@ -512,10 +595,11 @@ async function exportTodayCSV() {
       showToast('warning', 'No attendance records for today.');
       return;
     }
-    const headers = ['Att ID','Emp ID','Name','Date','Check-In','Check-Out','Status','Latitude','Longitude','Device'];
+    const headers = ['Att ID','Emp ID','Name','Date','Day','Check-In','Late Check-In Reason','Check-Out','Status','Early Check-Out Reason','Latitude','Longitude','Device'];
     const rows    = result.data.map(r => [
-      r.id, r.employeeId, r.employeeName, r.date,
-      r.checkIn, r.checkOut, r.status, r.latitude, r.longitude, r.deviceInfo,
+      r.id, r.employeeId, r.employeeName, r.date, r.day,
+      r.checkIn, r.lateCheckInReason, r.checkOut, r.status, r.earlyCheckoutReason,
+      r.latitude, r.longitude, r.deviceInfo,
     ]);
     downloadCSV([headers, ...rows], `attendance_today_${getTodayString()}.csv`);
   } catch (err) {
@@ -536,10 +620,10 @@ async function exportAttendanceCSV() {
     if (!result.success) { showToast('error', result.message); return; }
     if (!result.data.length) { showToast('warning', 'No records match the current filter.'); return; }
 
-    const headers = ['Att ID','Emp ID','Name','Date','Check-In','Check-Out','Status','Lat','Lng','Device','QR Token','Timestamp'];
+    const headers = ['Att ID','Emp ID','Name','Date','Day','Check-In','Late Check-In Reason','Check-Out','Status','Early Check-Out Reason','Lat','Lng','Device','QR Token','Timestamp'];
     const rows    = result.data.map(r => [
-      r.id, r.employeeId, r.employeeName, r.date,
-      r.checkIn, r.checkOut, r.status,
+      r.id, r.employeeId, r.employeeName, r.date, r.day,
+      r.checkIn, r.lateCheckInReason, r.checkOut, r.status, r.earlyCheckoutReason,
       r.latitude, r.longitude, r.deviceInfo, r.qrToken, r.timestamp,
     ]);
     downloadCSV([headers, ...rows], `attendance_${date || 'all'}_${getTodayString()}.csv`);
@@ -581,6 +665,8 @@ async function loadSettings() {
 
     setVal('sOfficeName', 'OFFICE_NAME');
     setVal('sStartTime',  'OFFICE_START_TIME');
+    setVal('sLateCutoff', 'LATE_CUTOFF_TIME');
+    setVal('sCheckoutCutoff', 'EARLY_CHECKOUT_CUTOFF_TIME');
     setVal('sQrExpiry',   'QR_EXPIRY_SECONDS');
     setVal('sLat',        'OFFICE_LATITUDE');
     setVal('sLng',        'OFFICE_LONGITUDE');
@@ -603,14 +689,19 @@ async function saveOfficeSettings() {
   const settings = {
     OFFICE_NAME:       document.getElementById('sOfficeName')?.value || '',
     OFFICE_START_TIME: document.getElementById('sStartTime')?.value  || '',
+    LATE_CUTOFF_TIME:  document.getElementById('sLateCutoff')?.value || '',
+    EARLY_CHECKOUT_CUTOFF_TIME: document.getElementById('sCheckoutCutoff')?.value || '',
     QR_EXPIRY_SECONDS: document.getElementById('sQrExpiry')?.value   || '',
   };
 
   try {
-    const result = await API.post({ action: 'updateSettings', settings });
+    const result = await API.post({ action: 'updateSettings', settings, adminToken: getAdminSession()?.token || '' });
     showSettingsAlert(alertEl, result.success ? 'success' : 'error',
       result.message || (result.success ? 'Office settings saved.' : 'Save failed.'));
-    if (result.success) showToast('success', 'Office settings updated.');
+    if (result.success) {
+      await loadAttendancePolicySettings(true);
+      showToast('success', 'Office settings updated.');
+    }
   } catch (err) {
     showSettingsAlert(alertEl, 'error', err.message);
   }
@@ -635,7 +726,7 @@ async function saveGPSSettings() {
   };
 
   try {
-    const result = await API.post({ action: 'updateSettings', settings });
+    const result = await API.post({ action: 'updateSettings', settings, adminToken: getAdminSession()?.token || '' });
     showSettingsAlert(alertEl, result.success ? 'success' : 'error',
       result.message || (result.success ? 'GPS settings saved.' : 'Save failed.'));
     if (result.success) showToast('success', 'GPS settings updated.');
@@ -655,7 +746,7 @@ async function saveAdminCredentials() {
   if (password) settings['ADMIN_PASSWORD'] = password;
 
   try {
-    const result = await API.post({ action: 'updateSettings', settings });
+    const result = await API.post({ action: 'updateSettings', settings, adminToken: getAdminSession()?.token || '' });
     showSettingsAlert(alertEl, result.success ? 'success' : 'error',
       result.success ? 'Credentials updated. Re-login required.' : (result.message || 'Save failed.'));
     if (result.success) {
@@ -727,6 +818,169 @@ function showSettingsAlert(el, type, msg) {
 
 
 /* ============================================================
+   MONTHLY EMPLOYEE RANKING
+   ============================================================ */
+
+function getCurrentMonthPrefix(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getRankingMonthLabel(prefix = getCurrentMonthPrefix()) {
+  const [year, month] = prefix.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString('en-BD', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function calculateEmployeeRanking(employees = [], records = [], monthPrefix = getCurrentMonthPrefix()) {
+  const activeEmployees = employees.filter(emp => (emp.status || 'Active') === 'Active');
+  const byEmployee = new Map();
+
+  activeEmployees.forEach(emp => {
+    byEmployee.set(String(emp.id), {
+      employeeId: emp.id,
+      employeeName: emp.name,
+      department: emp.department || '',
+      presentDays: 0,
+      completeDays: 0,
+      lateDays: 0,
+      missingCheckoutDays: 0,
+      earlyCheckoutDays: 0,
+      score: 0,
+      lastCheckIn: '',
+      lastCheckOut: '',
+    });
+  });
+
+  records
+    .filter(r => r.date && r.date.startsWith(monthPrefix))
+    .forEach(r => {
+      const item = byEmployee.get(String(r.employeeId));
+      if (!item) return;
+
+      item.presentDays += 1;
+      if (r.checkIn && r.checkOut) item.completeDays += 1;
+      if (r.status === 'Late') item.lateDays += 1;
+      if (r.checkIn && !r.checkOut) item.missingCheckoutDays += 1;
+      if (r.earlyCheckoutReason) item.earlyCheckoutDays += 1;
+      if (!item.lastCheckIn || r.date > item.lastCheckIn.slice(0, 10)) {
+        item.lastCheckIn = `${r.date} ${r.checkIn || ''}`.trim();
+        item.lastCheckOut = r.checkOut || '';
+      }
+    });
+
+  const ranking = [...byEmployee.values()].map(item => ({
+    ...item,
+    score: (item.completeDays * 10) +
+      ((item.presentDays - item.completeDays) * 4) -
+      (item.lateDays * 2) -
+      (item.missingCheckoutDays * 3) -
+      item.earlyCheckoutDays,
+  }));
+
+  ranking.sort((a, b) =>
+    b.score - a.score ||
+    b.completeDays - a.completeDays ||
+    b.presentDays - a.presentDays ||
+    a.lateDays - b.lateDays ||
+    a.missingCheckoutDays - b.missingCheckoutDays ||
+    a.employeeName.localeCompare(b.employeeName)
+  );
+
+  ranking.forEach((item, index) => { item.rank = index + 1; });
+  return ranking;
+}
+
+async function loadMonthlyRankingData(monthPrefix = getCurrentMonthPrefix()) {
+  const [empResult, attResult] = await Promise.all([
+    API.get({ action: 'getEmployees' }),
+    API.get({ action: 'getAttendance', limit: '5000' }),
+  ]);
+  if (!empResult.success) throw new Error(empResult.message || 'Could not load employees.');
+  if (!attResult.success) throw new Error(attResult.message || 'Could not load attendance.');
+  return calculateEmployeeRanking(empResult.data || [], attResult.data || [], monthPrefix);
+}
+
+function renderRankingList(ranking, currentEmployeeId = '', limit = 10) {
+  const visible = ranking.slice(0, limit);
+  if (!visible.length) {
+    return '<div class="table-empty">No ranking data for this month.</div>';
+  }
+
+  return visible.map(item => {
+    const isCurrent = currentEmployeeId && String(item.employeeId) === String(currentEmployeeId);
+    const medal = item.rank === 1 ? 'fa-trophy' : (item.rank <= 3 ? 'fa-medal' : 'fa-ranking-star');
+    return `
+      <div class="ranking-row ${isCurrent ? 'ranking-row--current' : ''}">
+        <div class="ranking-row__rank">
+          <i class="fa-solid ${medal}"></i>
+          <span>#${item.rank}</span>
+        </div>
+        <div class="ranking-row__person">
+          <strong>${escapeHTML(item.employeeName || '—')}</strong>
+          <span>${escapeHTML(item.employeeId || '')}${item.department ? ' · ' + escapeHTML(item.department) : ''}</span>
+        </div>
+        <div class="ranking-row__stats">
+          <span><b>${item.completeDays}</b> full</span>
+          <span><b>${item.presentDays}</b> present</span>
+          <span><b>${item.lateDays}</b> late</span>
+          <span><b>${item.missingCheckoutDays}</b> missing out</span>
+        </div>
+        <div class="ranking-row__score">${item.score}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadAdminRanking() {
+  const container = document.getElementById('adminRankingList');
+  const summary = document.getElementById('adminRankingSummary');
+  if (!container) return;
+
+  const monthPrefix = document.getElementById('rankingMonth')?.value || getCurrentMonthPrefix();
+  container.innerHTML = '<div class="emp-grid__loading"><i class="fa-solid fa-circle-notch fa-spin gold-text"></i><span>Loading ranking…</span></div>';
+
+  try {
+    const ranking = await loadMonthlyRankingData(monthPrefix);
+    const top = ranking[0];
+    if (summary) {
+      summary.innerHTML = top
+        ? `<strong>#1 ${escapeHTML(top.employeeName)}</strong> leads ${getRankingMonthLabel(monthPrefix)}. Top 1 employee will receive a reward gift at month end.`
+        : `No attendance ranking yet for ${getRankingMonthLabel(monthPrefix)}.`;
+    }
+    container.innerHTML = renderRankingList(ranking, '', 20);
+  } catch (err) {
+    container.innerHTML = `<div class="table-empty">${escapeHTML(err.message)}</div>`;
+  }
+}
+
+async function loadEmployeeRanking() {
+  const container = document.getElementById('employeeRankingList');
+  const summary = document.getElementById('employeeRankingSummary');
+  if (!container) return;
+
+  container.innerHTML = '<div class="emp-grid__loading"><i class="fa-solid fa-circle-notch fa-spin gold-text"></i><span>Loading ranking…</span></div>';
+  try {
+    const monthPrefix = getCurrentMonthPrefix();
+    const ranking = await loadMonthlyRankingData(monthPrefix);
+    const session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : null;
+    const employeeId = session?.employee?.id || '';
+    const current = ranking.find(item => String(item.employeeId) === String(employeeId));
+    const top = ranking[0];
+    if (summary) {
+      summary.innerHTML = current
+        ? `Your position is <strong>#${current.rank}</strong> for ${getRankingMonthLabel(monthPrefix)}. ${top ? `Top 1 (${escapeHTML(top.employeeName)}) will receive a reward gift at month end.` : ''}`
+        : `No ranking position yet for ${getRankingMonthLabel(monthPrefix)}. Top 1 employee will receive a reward gift at month end.`;
+    }
+    container.innerHTML = renderRankingList(ranking, employeeId, 10);
+  } catch (err) {
+    container.innerHTML = `<div class="table-empty">${escapeHTML(err.message)}</div>`;
+  }
+}
+
+
+/* ============================================================
    ATTENDANCE TABLE — Admin Attendance Section
    ============================================================ */
 let _allAttendanceData   = [];
@@ -737,7 +991,7 @@ async function loadAttendanceTable(filters = {}) {
   const tbody   = document.getElementById('attTableBody');
   const countEl = document.getElementById('attTableCount');
 
-  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">
+  if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="table-empty">
     <i class="fa-solid fa-circle-notch fa-spin"></i> Loading records…</td></tr>`;
 
   try {
@@ -768,7 +1022,7 @@ async function loadAttendanceTable(filters = {}) {
     }
 
   } catch (err) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty">
+    if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="table-empty">
       <i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i>
       ${err.message}</td></tr>`;
     showToast('error', 'Failed to load attendance: ' + err.message);
@@ -784,7 +1038,7 @@ function renderAttendancePage() {
   const records = _allAttendanceData.slice(start, end);
 
   if (!records.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No records found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="table-empty">No records found.</td></tr>';
     renderPagination();
     return;
   }
@@ -798,9 +1052,16 @@ function renderAttendancePage() {
         <div style="font-size:.72rem;color:var(--text-muted)">${r.employeeId || ''}</div>
       </td>
       <td>${formatDateDisplay(r.date)}</td>
+      <td style="font-size:.78rem;color:var(--text-secondary)">${r.day || '—'}</td>
       <td style="font-weight:500">${r.checkIn || '—'}</td>
       <td style="color:var(--text-muted)">${r.checkOut || '—'}</td>
       <td><span class="status-badge status-badge--${(r.status || '').toLowerCase()}">${r.status || '—'}</span></td>
+      <td style="font-size:.75rem;color:var(--text-muted);max-width:180px;white-space:normal">
+        ${r.lateCheckInReason ? escapeHTML(r.lateCheckInReason) : '—'}
+      </td>
+      <td style="font-size:.75rem;color:var(--text-muted);max-width:180px;white-space:normal">
+        ${r.earlyCheckoutReason ? escapeHTML(r.earlyCheckoutReason) : '—'}
+      </td>
       <td>
         ${r.latitude
           ? `<a class="gps-link" href="https://maps.google.com/?q=${r.latitude},${r.longitude}" target="_blank" rel="noopener">

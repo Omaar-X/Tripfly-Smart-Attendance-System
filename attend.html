@@ -243,10 +243,13 @@ function showResult(mode, data) {
     pill.className    = 'a-result__pill a-result__pill--checkout';
     pillIco.className = 'fa-solid fa-door-open'; pillTxt.textContent = 'Check-Out';
     card.className    = 'a-result__card co'; btn.className = 'a-result__btn co';
+    const earlyReasonRow = data.earlyCheckoutReason
+      ? `<div class="a-result__row"><i class="fa-solid fa-clipboard-list"></i><div><span class="a-result__lbl">কারণ</span><span class="a-result__val">${escapeHTML(data.earlyCheckoutReason)}</span></div></div>`
+      : '';
     card.innerHTML    = `
       <div class="a-result__row"><i class="fa-solid fa-user"></i><div><span class="a-result__lbl">Employee</span><span class="a-result__val">${data.employeeName || '—'}</span></div></div>
       <div class="a-result__row"><i class="fa-regular fa-calendar"></i><div><span class="a-result__lbl">তারিখ</span><span class="a-result__val">${dateStr}</span></div></div>
-      <div class="a-result__row"><i class="fa-solid fa-door-open"></i><div><span class="a-result__lbl">Check-Out সময়</span><span class="a-result__val big">${data.checkOut || '—'}</span></div></div>`;
+      <div class="a-result__row"><i class="fa-solid fa-door-open"></i><div><span class="a-result__lbl">Check-Out সময়</span><span class="a-result__val big">${data.checkOut || '—'}</span></div></div>${earlyReasonRow}`;
   } else {
     const late = data.status === 'Late';
     ring.className = 'a-result__ring'; ringIcon.className = 'fa-solid fa-circle-check';
@@ -256,10 +259,13 @@ function showResult(mode, data) {
     pillIco.className = 'fa-solid fa-' + (late ? 'clock' : 'circle-check');
     pillTxt.textContent = late ? 'Late' : 'Present';
     card.className    = 'a-result__card'; btn.className = 'a-result__btn';
+    const lateReasonRow = data.lateCheckInReason
+      ? `<div class="a-result__row"><i class="fa-solid fa-clipboard-list"></i><div><span class="a-result__lbl">কারণ</span><span class="a-result__val">${escapeHTML(data.lateCheckInReason)}</span></div></div>`
+      : '';
     card.innerHTML    = `
       <div class="a-result__row"><i class="fa-solid fa-user"></i><div><span class="a-result__lbl">Employee</span><span class="a-result__val">${data.employeeName || '—'}</span></div></div>
       <div class="a-result__row"><i class="fa-regular fa-calendar"></i><div><span class="a-result__lbl">তারিখ</span><span class="a-result__val">${data.date || dateStr}</span></div></div>
-      <div class="a-result__row"><i class="fa-regular fa-clock"></i><div><span class="a-result__lbl">Check-In সময়</span><span class="a-result__val big">${data.checkIn || '—'}</span></div></div>`;
+      <div class="a-result__row"><i class="fa-regular fa-clock"></i><div><span class="a-result__lbl">Check-In সময়</span><span class="a-result__val big">${data.checkIn || '—'}</span></div></div>${lateReasonRow}`;
   }
   startCountdown(6);
 }
@@ -283,11 +289,12 @@ function showError(msg) {
 async function processAttendance(employee) {
   document.getElementById('loadTitle').textContent = 'Attendance দেওয়া হচ্ছে…';
   document.getElementById('loadSub').textContent   = employee.name + ' — একটু অপেক্ষা করুন';
+  if (typeof loadAttendancePolicySettings === 'function') await loadAttendancePolicySettings(true);
 
   // Determine mode (check-in or check-out)
   let mode = 'checkin';
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = typeof getTodayString === 'function' ? getTodayString() : new Date().toISOString().slice(0, 10);
     const rec   = await API.get({ action: 'getAttendance', employeeId: employee.id, date: today });
     if (rec.success && rec.data.length > 0) {
       const r = rec.data[0];
@@ -304,7 +311,16 @@ async function processAttendance(employee) {
   try {
     let result;
     if (mode === 'checkout') {
-      result = await API.post({ action: 'checkOut', employeeId: employee.id, qrToken: _token });
+      const payload = { action: 'checkOut', employeeId: employee.id, qrToken: _token };
+      if (typeof isBeforeCheckoutCutoff === 'function' && isBeforeCheckoutCutoff()) {
+        const reason = requestEarlyCheckoutReason();
+        if (!reason) {
+          showError('৬টার আগে Check-Out করতে হলে কারণ লিখতে হবে।');
+          return;
+        }
+        payload.earlyCheckoutReason = reason;
+      }
+      result = await API.post(payload);
     } else {
       let gps = null;
       try {
@@ -323,6 +339,14 @@ async function processAttendance(employee) {
         qrToken:    _token,
         deviceInfo: navigator.userAgent,
       };
+      if (typeof isAfterLateCheckinCutoff === 'function' && isAfterLateCheckinCutoff()) {
+        const reason = requestLateCheckInReason();
+        if (!reason) {
+          showError('10:15 AM এর পরে Check-In করতে হলে কারণ লিখতে হবে।');
+          return;
+        }
+        payload.lateCheckInReason = reason;
+      }
       if (gps) { payload.latitude = gps.lat; payload.longitude = gps.lng; }
       result = await API.post(payload);
     }

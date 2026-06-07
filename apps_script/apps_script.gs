@@ -25,6 +25,11 @@ const SHEET_EMPLOYEES  = 'Employees';
 const SHEET_ATTENDANCE = 'Attendance';
 const SHEET_QR_TOKENS  = 'QR_Tokens';
 const SHEET_SETTINGS   = 'Settings';
+const SHEET_LOGS       = 'Logs';
+const DEFAULT_OFFICE_START_TIME = '10:00';
+const DEFAULT_LATE_CUTOFF_TIME = '10:15';
+const EARLY_CHECKOUT_CUTOFF_TIME = '18:00';
+const ATTENDANCE_EXTRA_HEADERS = ['Day', 'Late Check-In Reason', 'Early Check-Out Reason'];
 
 // ─────────────────────────────────────────────
 // SECURITY — Secret API Key
@@ -191,6 +196,171 @@ function getSheet(name) {
   return sheet;
 }
 
+function ensureAttendanceSheetSchema(sheet, shouldFormat) {
+  const attSheet = sheet || getSheet(SHEET_ATTENDANCE);
+  if (attSheet.getLastRow() === 0) return;
+
+  let lastCol = attSheet.getLastColumn();
+  let headers = lastCol > 0
+    ? attSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim())
+    : [];
+  let changed = false;
+
+  ATTENDANCE_EXTRA_HEADERS.forEach(header => {
+    if (headers.indexOf(header) === -1) {
+      lastCol += 1;
+      attSheet.getRange(1, lastCol).setValue(header);
+      headers.push(header);
+      changed = true;
+    }
+  });
+
+  if (changed || shouldFormat) applyAttendanceSheetFormatting(attSheet);
+}
+
+function getAttendanceHeaderMap(sheet) {
+  ensureAttendanceSheetSchema(sheet, false);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const map = {};
+  headers.forEach((header, idx) => {
+    if (header) map[String(header).trim()] = idx;
+  });
+  return map;
+}
+
+function getAttendanceColumn(sheet, header) {
+  const map = getAttendanceHeaderMap(sheet);
+  return map[header] === undefined ? 0 : map[header] + 1;
+}
+
+function getRowValue(row, map, header, fallbackIndex) {
+  const idx = map[header] === undefined ? fallbackIndex : map[header];
+  return idx === undefined ? '' : row[idx];
+}
+
+function buildAttendanceRow(sheet, values) {
+  const map = getAttendanceHeaderMap(sheet);
+  const row = new Array(sheet.getLastColumn()).fill('');
+  Object.keys(values).forEach(header => {
+    if (map[header] !== undefined) row[map[header]] = values[header];
+  });
+  return row;
+}
+
+function applyAttendanceSheetFormatting(sheet) {
+  if (!sheet || sheet.getLastRow() === 0) return;
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, lastCol)
+    .setFontWeight('bold')
+    .setBackground('#1a1a1a')
+    .setFontColor('#D4AF37');
+
+  if (lastRow <= 1) return;
+
+  const dateCol = getHeaderColumnFromRow(sheet, 'Date') || 4;
+  const dayCol  = getHeaderColumnFromRow(sheet, 'Day');
+  const rows    = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  // Clear all previous data-row formatting
+  sheet.getRange(2, 1, lastRow - 1, lastCol)
+    .setBackground(null)
+    .setBorder(false, false, false, false, false, false);
+
+  // Collect unique dates in order + all sheet-row numbers per date
+  const uniqueDates = [];
+  const dateRows = {};
+  rows.forEach((row, idx) => {
+    const dateStr = normalizeDateValue(row[dateCol - 1]);
+    if (!dateStr) return;
+    if (uniqueDates.indexOf(dateStr) === -1) {
+      uniqueDates.push(dateStr);
+      dateRows[dateStr] = [];
+    }
+    dateRows[dateStr].push(idx + 2);
+  });
+
+  // Two alternating colors — reset per 6-day group so each group looks same
+  const COLOR_A = '#f0f4f8'; // very light blue-gray
+  const COLOR_B = '#ffffff'; // white
+
+  uniqueDates.forEach((dateStr, idx) => {
+    const posInGroup = idx % 6;                  // 0..5 within the current 6-day group
+    const bgColor    = posInGroup % 2 === 0 ? COLOR_A : COLOR_B;
+    const isGroupEnd = (idx + 1) % 6 === 0;
+    const rowNums    = dateRows[dateStr];
+
+    // Color every row belonging to this date
+    rowNums.forEach(rowNum => {
+      sheet.getRange(rowNum, 1, 1, lastCol).setBackground(bgColor);
+    });
+
+    // Every 6th date → thick gold border (visual "space") + yellow marker on Date cell
+    if (isGroupEnd) {
+      const lastRowNum = rowNums[rowNums.length - 1];
+
+      sheet.getRange(lastRowNum, 1, 1, lastCol)
+        .setBorder(null, null, true, null, null, null,
+          '#D4AF37', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+      // Mark the Date column — always visible
+      sheet.getRange(lastRowNum, dateCol)
+        .setBackground('#ffd966')
+        .setFontWeight('bold');
+
+      // Also mark the Day column if present
+      if (dayCol) {
+        sheet.getRange(lastRowNum, dayCol)
+          .setBackground('#ffd966')
+          .setFontWeight('bold')
+          .setNote('6-day week end');
+      }
+    }
+  });
+}
+
+function getHeaderColumnFromRow(sheet, header) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idx = headers.map(h => String(h || '').trim()).indexOf(header);
+  return idx === -1 ? 0 : idx + 1;
+}
+
+function ensureSettingsDefaults(sheet) {
+  const setSheet = sheet || getSheet(SHEET_SETTINGS);
+  const defaults = {
+    OFFICE_START_TIME: DEFAULT_OFFICE_START_TIME,
+    LATE_CUTOFF_TIME: DEFAULT_LATE_CUTOFF_TIME,
+    EARLY_CHECKOUT_CUTOFF_TIME: EARLY_CHECKOUT_CUTOFF_TIME,
+    ADMIN_PASSWORD: 'razib@123',
+  };
+  const data = setSheet.getDataRange().getValues();
+
+  Object.keys(defaults).forEach(key => {
+    let found = false;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === key) {
+        found = true;
+        if (key === 'ADMIN_PASSWORD' && String(data[i][1] || '') === 'admin123') {
+          setSheet.getRange(i + 1, 2).setValue(defaults[key]);
+        }
+        if (key === 'OFFICE_START_TIME' && String(data[i][1] || '') === '09:00') {
+          setSheet.getRange(i + 1, 2).setValue(defaults[key]);
+        }
+        if (key === 'LATE_CUTOFF_TIME' && String(data[i][1] || '') === '10:30') {
+          setSheet.getRange(i + 1, 2).setValue(defaults[key]);
+        }
+        if (key === 'EARLY_CHECKOUT_CUTOFF_TIME' && String(data[i][1] || '') === '17:00') {
+          setSheet.getRange(i + 1, 2).setValue(defaults[key]);
+        }
+        break;
+      }
+    }
+    if (!found) setSheet.appendRow([key, defaults[key]]);
+  });
+}
+
 // ─────────────────────────────────────────────
 // INITIALIZE SHEETS (run once to set up headers)
 // ─────────────────────────────────────────────
@@ -226,10 +396,18 @@ function initializeSheets() {
     attSheet.appendRow([
       'Attendance ID', 'Employee ID', 'Employee Name',
       'Date', 'Check-In Time', 'Check-Out Time',
-      'Status', 'Latitude', 'Longitude',
-      'Device Info', 'QR Token', 'Timestamp'
+      'Status', 'Day', 'Late Check-In Reason', 'Early Check-Out Reason'
     ]);
-    attSheet.getRange(1, 1, 1, 12).setFontWeight('bold').setBackground('#1a1a1a').setFontColor('#D4AF37');
+    attSheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#1a1a1a').setFontColor('#D4AF37');
+  }
+  ensureAttendanceSheetSchema(attSheet, true);
+
+  // ── Logs (technical data) ─────────────────
+  let logsSheet = ss.getSheetByName(SHEET_LOGS);
+  if (!logsSheet) logsSheet = ss.insertSheet(SHEET_LOGS);
+  if (logsSheet.getLastRow() === 0) {
+    logsSheet.appendRow(['Attendance ID', 'Latitude', 'Longitude', 'Device Info', 'QR Token', 'Timestamp']);
+    logsSheet.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#1a1a1a').setFontColor('#D4AF37');
   }
 
   // ── QR_Tokens ─────────────────────────────
@@ -251,17 +429,19 @@ function initializeSheets() {
       ['OFFICE_LATITUDE',   '23.8103'],       // Dhaka default
       ['OFFICE_LONGITUDE',  '90.4125'],
       ['ALLOWED_RADIUS',    '100'],           // metres
-      ['OFFICE_START_TIME', '09:00'],
-      ['LATE_CUTOFF_TIME',  '10:30'],
+      ['OFFICE_START_TIME', DEFAULT_OFFICE_START_TIME],
+      ['LATE_CUTOFF_TIME',  DEFAULT_LATE_CUTOFF_TIME],
       ['QR_EXPIRY_SECONDS', '86400'],  // 24 hours = 86400 seconds
       ['GPS_REQUIRED',      'TRUE'],
       ['ADMIN_USERNAME',    'admin'],
-      ['ADMIN_PASSWORD',    'admin123'],
+      ['ADMIN_PASSWORD',    'razib@123'],
+      ['EARLY_CHECKOUT_CUTOFF_TIME', EARLY_CHECKOUT_CUTOFF_TIME],
       ['STATIC_QR_TOKEN',   'TRIPFLYBD-OFFICE-GATE-QR-2024'],  // printed QR token
       ['STATIC_QR_EXPIRY',  ''],   // auto-set when generated (YYYY-MM-DD)
     ];
     defaults.forEach(row => setSheet.appendRow(row));
   }
+  ensureSettingsDefaults(setSheet);
 
   return { success: true, message: 'Sheets initialized successfully' };
 }
@@ -269,25 +449,37 @@ function initializeSheets() {
 // ─────────────────────────────────────────────
 // SETTINGS
 // ─────────────────────────────────────────────
-function getSettings() {
+function getSettings(includePrivate) {
   const sheet = getSheet(SHEET_SETTINGS);
+  ensureSettingsDefaults(sheet);
   const data  = sheet.getDataRange().getValues();
   const settings = {};
+  const privateKeys = {
+    ADMIN_PASSWORD: true,
+    ADMIN_SESSION_TOKEN: true,
+    ADMIN_SESSION_EXPIRES: true,
+  };
   for (let i = 1; i < data.length; i++) {
     if (data[i][0]) {
+      const key = data[i][0];
+      if (!includePrivate && privateKeys[key]) continue;
       let val = data[i][1];
       if (val instanceof Date) {
         val = Utilities.formatDate(val, 'Asia/Dhaka', 'HH:mm');
       } else {
         val = String(val);
       }
-      settings[data[i][0]] = val;
+      settings[key] = val;
     }
   }
   return { success: true, data: settings };
 }
 
 function updateSettings(body) {
+  if (!body.internal && !validateAdminSession(body.adminToken)) {
+    return { success: false, message: 'Admin authorization required.' };
+  }
+
   const sheet = getSheet(SHEET_SETTINGS);
   const data  = sheet.getDataRange().getValues();
   const updates = body.settings || {};
@@ -309,8 +501,16 @@ function updateSettings(body) {
 }
 
 function getSettingsMap() {
-  const res = getSettings();
+  const res = getSettings(true);
   return res.data || {};
+}
+
+function validateAdminSession(token) {
+  if (!token) return false;
+  const settings = getSettingsMap();
+  if (token !== settings['ADMIN_SESSION_TOKEN']) return false;
+  const expiresAt = new Date(settings['ADMIN_SESSION_EXPIRES'] || '');
+  return !isNaN(expiresAt.getTime()) && expiresAt.getTime() > Date.now();
 }
 
 // ─────────────────────────────────────────────
@@ -322,12 +522,17 @@ function adminLogin(body) {
   const password = (body.password || '').trim();
 
   if (username === settings['ADMIN_USERNAME'] && password === settings['ADMIN_PASSWORD']) {
+    const token = generateSecureToken();
+    updateSettings({ internal: true, settings: {
+      ADMIN_SESSION_TOKEN: token,
+      ADMIN_SESSION_EXPIRES: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+    }});
     return {
       success: true,
       message: 'Admin login successful',
       role: 'admin',
       username: username,
-      token: generateSecureToken(),
+      token: token,
     };
   }
   return { success: false, message: 'Invalid admin credentials' };
@@ -621,30 +826,51 @@ function markAttendance(body) {
   const serverTime = now.toISOString();
   const timeStr    = Utilities.formatDate(now, 'Asia/Dhaka', 'HH:mm:ss');
   const dateStr    = Utilities.formatDate(now, 'Asia/Dhaka', 'yyyy-MM-dd');
+  const dayName    = Utilities.formatDate(now, 'Asia/Dhaka', 'EEEE');
 
   // 6. Determine status
-  const lateCutoff = settings['LATE_CUTOFF_TIME'] || '10:30';
+  const lateCutoff = settings['LATE_CUTOFF_TIME'] || DEFAULT_LATE_CUTOFF_TIME;
   const status     = determineAttendanceStatus(timeStr, lateCutoff);
+  const lateReason = cleanReason(
+    body.lateCheckInReason || body.checkInReason || body.lateReason || body.reason || ''
+  );
+
+  if (status === 'Late' && !lateReason) {
+    return {
+      success: false,
+      requireReason: true,
+      reasonType: 'late-checkin',
+      cutoffTime: lateCutoff,
+      status: status,
+      message: formatOfficeTimeLabel(lateCutoff) + ' এর পরে Check-In করতে হলে কারণ লিখতে হবে।',
+    };
+  }
 
   // 7. Generate attendance ID
   const attId = 'ATT' + Utilities.formatDate(now, 'Asia/Dhaka', 'yyyyMMddHHmmss') + Math.floor(Math.random() * 100);
 
   // 8. Save attendance
   const attSheet = getSheet(SHEET_ATTENDANCE);
-  attSheet.appendRow([
-    attId,
-    employeeId,
-    empInfo.name,
-    dateStr,
-    timeStr,
-    '',                         // Check-out (empty for now)
-    status,
-    latitude  || '',
-    longitude || '',
-    deviceInfo || 'Unknown',
-    qrToken,
-    serverTime,
-  ]);
+  ensureAttendanceSheetSchema(attSheet, false);
+  attSheet.appendRow(buildAttendanceRow(attSheet, {
+    'Attendance ID': attId,
+    'Employee ID': employeeId,
+    'Employee Name': empInfo.name,
+    'Date': dateStr,
+    'Check-In Time': timeStr,
+    'Check-Out Time': '',
+    'Status': status,
+    'Day': dayName,
+    'Late Check-In Reason': lateReason,
+    'Early Check-Out Reason': '',
+  }));
+  applyAttendanceSheetFormatting(attSheet);
+
+  // Technical data → Logs sheet (separate from main attendance view)
+  try {
+    const logsSheet = getSheet(SHEET_LOGS);
+    logsSheet.appendRow([attId, latitude || '', longitude || '', deviceInfo || 'Unknown', qrToken, serverTime]);
+  } catch (_) {}
 
   return {
     success:    true,
@@ -652,8 +878,10 @@ function markAttendance(body) {
     attendanceId: attId,
     employeeName: empInfo.name,
     date:       dateStr,
+    day:        dayName,
     checkIn:    timeStr,
     status:     status,
+    lateCheckInReason: lateReason,
     distance:   gpsResult.distance,
   };
 }
@@ -666,10 +894,29 @@ function checkOut(body) {
   if (!employeeId) return { success: false, message: 'Employee ID required' };
 
   const sheet = getSheet(SHEET_ATTENDANCE);
+  ensureAttendanceSheetSchema(sheet, false);
   const data  = sheet.getDataRange().getValues();
   const today = getTodayDate();
   const now   = new Date();
   const timeStr = Utilities.formatDate(now, 'Asia/Dhaka', 'HH:mm:ss');
+  const settings = getSettingsMap();
+  const cutoffTime = settings['EARLY_CHECKOUT_CUTOFF_TIME'] || EARLY_CHECKOUT_CUTOFF_TIME;
+  const earlyCheckout = isBeforeOfficeTime(now, cutoffTime);
+  const earlyReason = cleanReason(
+    body.earlyCheckoutReason || body.checkoutReason || body.reason || ''
+  );
+
+  if (earlyCheckout && !earlyReason) {
+    return {
+      success: false,
+      requireReason: true,
+      cutoffTime: cutoffTime,
+      message: formatOfficeTimeLabel(cutoffTime) + ' এর আগে Check-Out করতে হলে কারণ লিখতে হবে।',
+    };
+  }
+
+  const dayCol = getAttendanceColumn(sheet, 'Day');
+  const reasonCol = getAttendanceColumn(sheet, 'Early Check-Out Reason');
 
   for (let i = data.length - 1; i >= 1; i--) {
     if (data[i][1].toString() === employeeId.toString() && normalizeDateValue(data[i][3]) === today) {
@@ -677,10 +924,20 @@ function checkOut(body) {
         return { success: false, message: 'Already checked out today' };
       }
       sheet.getRange(i + 1, 6).setValue(timeStr);
+      if (dayCol && !data[i][dayCol - 1]) {
+        const rowDate = normalizeDateValue(data[i][3]) || today;
+        sheet.getRange(i + 1, dayCol).setValue(getDayNameFromDateString(rowDate));
+      }
+      if (reasonCol && earlyReason) {
+        sheet.getRange(i + 1, reasonCol).setValue(earlyReason);
+      }
+      applyAttendanceSheetFormatting(sheet);
       return {
         success:  true,
         message:  'Check-out recorded',
         checkOut: timeStr,
+        earlyCheckout: earlyCheckout,
+        earlyCheckoutReason: earlyReason,
       };
     }
   }
@@ -692,7 +949,9 @@ function checkOut(body) {
 // ─────────────────────────────────────────────
 function getAttendance(params) {
   const sheet = getSheet(SHEET_ATTENDANCE);
+  ensureAttendanceSheetSchema(sheet, false);
   const data  = sheet.getDataRange().getValues();
+  const headerMap = data.length ? buildHeaderMap(data[0]) : {};
   const records = [];
 
   const filterDate = params.date || '';
@@ -704,6 +963,7 @@ function getAttendance(params) {
     const row = data[i];
     if (!row[0]) continue;
     const dateStr = normalizeDateValue(row[3]);
+    const day = getRowValue(row, headerMap, 'Day', 12) || getDayNameFromDateString(dateStr);
     if (filterDate && dateStr !== filterDate) continue;
     if (filterEmp  && row[1].toString() !== filterEmp) continue;
 
@@ -715,11 +975,9 @@ function getAttendance(params) {
       checkIn:      row[4],
       checkOut:     row[5],
       status:       row[6],
-      latitude:     row[7],
-      longitude:    row[8],
-      deviceInfo:   row[9],
-      qrToken:      row[10],
-      timestamp:    row[11],
+      day:          day,
+      lateCheckInReason:   getRowValue(row, headerMap, 'Late Check-In Reason', 8),
+      earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 9),
     });
   }
 
@@ -734,7 +992,9 @@ function getTodayAttendance() {
 
 function getEmployeeAttendanceToday(employeeId, date) {
   const sheet = getSheet(SHEET_ATTENDANCE);
+  ensureAttendanceSheetSchema(sheet, false);
   const data  = sheet.getDataRange().getValues();
+  const headerMap = data.length ? buildHeaderMap(data[0]) : {};
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -744,6 +1004,9 @@ function getEmployeeAttendanceToday(employeeId, date) {
         checkIn: row[4],
         checkOut:row[5],
         status:  row[6],
+        day:     getRowValue(row, headerMap, 'Day', 12),
+        lateCheckInReason: getRowValue(row, headerMap, 'Late Check-In Reason', 13),
+        earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 14),
       };
     }
   }
@@ -844,6 +1107,14 @@ function getTodayDate() {
   return Utilities.formatDate(new Date(), 'Asia/Dhaka', 'yyyy-MM-dd');
 }
 
+function buildHeaderMap(headers) {
+  const map = {};
+  (headers || []).forEach((header, idx) => {
+    if (header) map[String(header).trim()] = idx;
+  });
+  return map;
+}
+
 function normalizeDateValue(value) {
   if (!value) return '';
   if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
@@ -856,6 +1127,42 @@ function normalizeDateValue(value) {
     return Utilities.formatDate(parsed, 'Asia/Dhaka', 'yyyy-MM-dd');
   }
   return str;
+}
+
+function getDayNameFromDateString(dateStr) {
+  if (!dateStr) return '';
+  const parsed = new Date(dateStr + 'T00:00:00+06:00');
+  if (isNaN(parsed.getTime())) return '';
+  return Utilities.formatDate(parsed, 'Asia/Dhaka', 'EEEE');
+}
+
+function normalizeOfficeTime(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2})(?::(\d{1,2}))?/);
+  if (!match) return EARLY_CHECKOUT_CUTOFF_TIME;
+  const hours = Math.max(0, Math.min(23, parseInt(match[1], 10)));
+  const minutes = Math.max(0, Math.min(59, parseInt(match[2] || '0', 10)));
+  return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0');
+}
+
+function isBeforeOfficeTime(date, cutoffTime) {
+  const current = Utilities.formatDate(date, 'Asia/Dhaka', 'HH:mm');
+  return current < normalizeOfficeTime(cutoffTime);
+}
+
+function formatOfficeTimeLabel(timeStr) {
+  const normalized = normalizeOfficeTime(timeStr);
+  const parts = normalized.split(':').map(Number);
+  const suffix = parts[0] >= 12 ? 'PM' : 'AM';
+  const hour = parts[0] % 12 || 12;
+  return hour + ':' + String(parts[1]).padStart(2, '0') + ' ' + suffix;
+}
+
+function cleanReason(reason) {
+  return String(reason || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 250);
 }
 
 function generateSecureToken() {
@@ -878,11 +1185,15 @@ function generatePIN() {
 }
 
 function determineAttendanceStatus(timeStr, lateCutoff) {
-  const [h, m] = timeStr.split(':').map(Number);
-  const [ch, cm] = lateCutoff.split(':').map(Number);
-  const minutesNow    = h * 60 + m;
-  const minutesCutoff = ch * 60 + cm;
-  return minutesNow <= minutesCutoff ? 'Present' : 'Late';
+  return timeToSeconds(timeStr) <= timeToSeconds(lateCutoff) ? 'Present' : 'Late';
+}
+
+function timeToSeconds(timeStr) {
+  const parts = String(timeStr || '00:00').split(':').map(Number);
+  const h = Number.isFinite(parts[0]) ? parts[0] : 0;
+  const m = Number.isFinite(parts[1]) ? parts[1] : 0;
+  const s = Number.isFinite(parts[2]) ? parts[2] : 0;
+  return h * 3600 + m * 60 + s;
 }
 
 function getEmployeeById(employeeId) {
@@ -941,7 +1252,7 @@ function generateMonthlyQR() {
   const newToken = 'TFBD-GATE-' + month + '-' + generateSecureToken().substring(0, 8).toUpperCase();
 
   // Save to settings
-  updateSettings({ settings: {
+  updateSettings({ internal: true, settings: {
     STATIC_QR_TOKEN:  newToken,
     STATIC_QR_EXPIRY: expiry,
   }});
@@ -1029,6 +1340,151 @@ function approveEmployee(body) {
     }
   }
   return { success: false, message: 'Pending employee not found.' };
+}
+
+// ─────────────────────────────────────────────
+// MIGRATE TECHNICAL COLUMNS TO LOGS SHEET — run once manually
+// Apps Script editor → select moveColumnsToLogsSheet → Run
+// Moves Latitude, Longitude, Device Info, QR Token, Timestamp
+// out of Attendance sheet into the new Logs sheet
+// ─────────────────────────────────────────────
+function moveColumnsToLogsSheet() {
+  const ss       = getSpreadsheet();
+  const attSheet = getSheet(SHEET_ATTENDANCE);
+
+  // Ensure Logs sheet exists
+  let logsSheet = ss.getSheetByName(SHEET_LOGS);
+  if (!logsSheet) {
+    logsSheet = ss.insertSheet(SHEET_LOGS);
+    logsSheet.appendRow(['Attendance ID', 'Latitude', 'Longitude', 'Device Info', 'QR Token', 'Timestamp']);
+    logsSheet.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#1a1a1a').setFontColor('#D4AF37');
+  }
+
+  const headers   = attSheet.getRange(1, 1, 1, attSheet.getLastColumn()).getValues()[0];
+  const headerMap = {};
+  headers.forEach((h, i) => { if (h) headerMap[String(h).trim()] = i; }); // 0-indexed
+
+  const techFields = ['Latitude', 'Longitude', 'Device Info', 'QR Token', 'Timestamp'];
+  const presentFields = techFields.filter(f => headerMap[f] !== undefined);
+
+  if (presentFields.length === 0) {
+    Logger.log('Technical columns not found — already migrated or never existed.');
+    return;
+  }
+
+  const lastRow = attSheet.getLastRow();
+  if (lastRow > 1) {
+    const data = attSheet.getDataRange().getValues();
+
+    // Collect existing Attendance IDs already in Logs to avoid duplicates
+    const logsLastRow = logsSheet.getLastRow();
+    const existingIds = new Set();
+    if (logsLastRow > 1) {
+      logsSheet.getRange(2, 1, logsLastRow - 1, 1).getValues()
+        .forEach(r => { if (r[0]) existingIds.add(String(r[0])); });
+    }
+
+    const newLogRows = [];
+    for (let i = 1; i < data.length; i++) {
+      const row   = data[i];
+      const attId = String(row[headerMap['Attendance ID'] !== undefined ? headerMap['Attendance ID'] : 0] || '');
+      if (!attId || existingIds.has(attId)) continue;
+      newLogRows.push([
+        attId,
+        headerMap['Latitude']    !== undefined ? row[headerMap['Latitude']]    : '',
+        headerMap['Longitude']   !== undefined ? row[headerMap['Longitude']]   : '',
+        headerMap['Device Info'] !== undefined ? row[headerMap['Device Info']] : '',
+        headerMap['QR Token']    !== undefined ? row[headerMap['QR Token']]    : '',
+        headerMap['Timestamp']   !== undefined ? row[headerMap['Timestamp']]   : '',
+      ]);
+    }
+
+    if (newLogRows.length > 0) {
+      logsSheet.getRange(logsSheet.getLastRow() + 1, 1, newLogRows.length, 6).setValues(newLogRows);
+      Logger.log('Copied ' + newLogRows.length + ' rows to Logs sheet.');
+    }
+  }
+
+  // Delete technical columns from Attendance sheet (right → left to avoid index shift)
+  const colsToDelete = presentFields
+    .map(f => headerMap[f] + 1) // convert to 1-indexed
+    .sort((a, b) => b - a);     // descending order
+
+  colsToDelete.forEach(col => attSheet.deleteColumn(col));
+  Logger.log('Deleted columns: ' + presentFields.join(', ') + ' from Attendance sheet.');
+
+  // Re-apply schema and formatting
+  ensureAttendanceSheetSchema(attSheet, true);
+  Logger.log('Migration complete.');
+}
+
+// ─────────────────────────────────────────────
+// DELETE TECHNICAL COLUMNS FROM ATTENDANCE SHEET — run once manually
+// Run this AFTER moveColumnsToLogsSheet if columns weren't deleted
+// ─────────────────────────────────────────────
+function deleteTechColumnsFromAttendance() {
+  const sheet   = getSheet(SHEET_ATTENDANCE);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const techFields = ['Latitude', 'Longitude', 'Device Info', 'QR Token', 'Timestamp'];
+  const colsToDelete = [];
+
+  headers.forEach((h, i) => {
+    const name = String(h || '').trim();
+    if (techFields.indexOf(name) !== -1) {
+      colsToDelete.push(i + 1); // 1-indexed
+      Logger.log('Found: ' + name + ' at column ' + (i + 1));
+    }
+  });
+
+  if (colsToDelete.length === 0) {
+    Logger.log('No technical columns found — already removed.');
+    return;
+  }
+
+  // Delete right → left to avoid index shifting
+  colsToDelete.sort((a, b) => b - a);
+  colsToDelete.forEach(col => {
+    Logger.log('Deleting column ' + col);
+    sheet.deleteColumn(col);
+  });
+
+  Logger.log('Done. Removed ' + colsToDelete.length + ' column(s).');
+  ensureAttendanceSheetSchema(sheet, true);
+}
+
+// ─────────────────────────────────────────────
+// REFORMAT EXISTING ATTENDANCE — run once manually
+// Apps Script editor → select reformatAttendanceSheet → Run
+// ─────────────────────────────────────────────
+function reformatAttendanceSheet() {
+  const sheet = getSheet(SHEET_ATTENDANCE);
+  ensureAttendanceSheetSchema(sheet, false);
+
+  if (sheet.getLastRow() <= 1) {
+    Logger.log('No attendance data to format.');
+    return;
+  }
+
+  // Fill in missing Day values for existing rows
+  const dateCol = getHeaderColumnFromRow(sheet, 'Date') || 4;
+  const dayCol  = getHeaderColumnFromRow(sheet, 'Day');
+  if (dayCol) {
+    const lastRow = sheet.getLastRow();
+    const rows = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+    rows.forEach((row, idx) => {
+      const rowNum  = idx + 2;
+      const dayVal  = String(row[dayCol - 1] || '').trim();
+      if (!dayVal) {
+        const dateStr = normalizeDateValue(row[dateCol - 1]);
+        const dayName = getDayNameFromDateString(dateStr);
+        if (dayName) sheet.getRange(rowNum, dayCol).setValue(dayName);
+      }
+    });
+  }
+
+  applyAttendanceSheetFormatting(sheet);
+  Logger.log('Attendance sheet reformatted successfully. Rows: ' + (sheet.getLastRow() - 1));
 }
 
 // ─────────────────────────────────────────────

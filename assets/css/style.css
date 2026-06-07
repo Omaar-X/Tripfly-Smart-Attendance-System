@@ -3062,6 +3062,77 @@ select.form-input option {
   gap: 0.4rem;
 }
 
+/* Monthly employee ranking */
+.ranking-note {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.ranking-note strong { color: var(--gold); }
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ranking-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 76px minmax(150px, 1fr) minmax(260px, 1.1fr) 64px;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.025);
+}
+.ranking-row--current {
+  border-color: rgba(212,175,55,0.42);
+  background: rgba(212,175,55,0.07);
+}
+.ranking-row__rank {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--gold);
+  font-weight: 800;
+}
+.ranking-row__person strong,
+.ranking-row__person span {
+  display: block;
+}
+.ranking-row__person strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+.ranking-row__person span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+.ranking-row__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.ranking-row__stats span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.ranking-row__stats b { color: var(--text-primary); }
+.ranking-row__score {
+  justify-self: end;
+  min-width: 48px;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: rgba(212,175,55,0.12);
+  color: var(--gold);
+  text-align: center;
+  font-weight: 800;
+}
+
 
 /* ============================================================
    27. RESPONSIVE BREAKPOINTS
@@ -3093,6 +3164,23 @@ input, select, textarea {
   /* ─ Sidebar ─ */
   .topbar__hamburger { display: flex; }
   .topbar__date      { display: none; }
+  .ranking-row {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+  .ranking-row__rank,
+  .ranking-row__person,
+  .ranking-row__stats {
+    grid-column: 1 / -1;
+  }
+  .ranking-row__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ranking-row__score {
+    position: absolute;
+    right: 1rem;
+    top: 0.95rem;
+  }
   .sidebar-overlay   { display: block; }
   .sidebar           { transform: translateX(-100%); }
   .sidebar.open      { transform: translateX(0); box-shadow: 6px 0 40px rgba(0,0,0,0.6); }

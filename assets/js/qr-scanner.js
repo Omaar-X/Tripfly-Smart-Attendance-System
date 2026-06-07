@@ -48,6 +48,7 @@ const Scanner = (() => {
   // ── Start scanner ─────────────────────────────────────
   async function start() {
     if (_isScanning) return;
+    if (typeof loadAttendancePolicySettings === 'function') await loadAttendancePolicySettings(true);
 
     const startBtn  = document.getElementById('startScanBtn');
     const stopBtn   = document.getElementById('stopScanBtn');
@@ -219,21 +220,37 @@ const Scanner = (() => {
       let result;
 
       if (_scanMode === 'checkout') {
+        let earlyReason = '';
+        if (typeof isBeforeCheckoutCutoff === 'function' && isBeforeCheckoutCutoff()) {
+          earlyReason = requestEarlyCheckoutReason();
+          if (!earlyReason) {
+            throw new Error('৬টার আগে Check-Out করতে হলে কারণ লিখতে হবে।');
+          }
+        }
         // Check-Out — validate QR token too so presence at gate is confirmed
         result = await API.post({
           action:     'checkOut',
           employeeId: employee.id,
           qrToken:    token,       // passed for logging; server validates if desired
+          earlyCheckoutReason: earlyReason,
         });
       } else {
         // Check-In — full markAttendance with GPS + QR validation
         const deviceInfo = _getDeviceInfo();
+        let lateReason = '';
+        if (typeof isAfterLateCheckinCutoff === 'function' && isAfterLateCheckinCutoff()) {
+          lateReason = requestLateCheckInReason();
+          if (!lateReason) {
+            throw new Error('10:15 AM এর পরে Check-In করতে হলে কারণ লিখতে হবে।');
+          }
+        }
         const body = {
           action:     'markAttendance',
           employeeId: employee.id,
           qrToken:    token,
           deviceInfo,
         };
+        if (lateReason) body.lateCheckInReason = lateReason;
         if (latitude  !== null) body.latitude  = latitude;
         if (longitude !== null) body.longitude = longitude;
         result = await API.post(body);
@@ -247,7 +264,7 @@ const Scanner = (() => {
         await stop();
 
         if (_scanMode === 'checkout') {
-          if (typeof showCheckoutPopup === 'function') showCheckoutPopup(result.checkOut);
+          if (typeof showCheckoutPopup === 'function') showCheckoutPopup(result.checkOut, result.earlyCheckoutReason);
         } else {
           if (typeof showSuccessPopup === 'function') showSuccessPopup(result);
         }

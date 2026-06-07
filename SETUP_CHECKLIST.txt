@@ -41,10 +41,11 @@ PHASE 5: GPS CONFIGURATION
   [ ] Verified office location is correct on Maps
 
 PHASE 6: SECURITY HARDENING
-  [ ] Changed admin password from 'admin123'
+  [ ] Changed admin password from 'razib@123'
   [ ] Changed employee PINs from defaults
   [ ] Updated employee names/emails/departments
-  [ ] Set correct OFFICE_START_TIME (default: 09:00)
+  [ ] Set correct OFFICE_START_TIME (default: 10:00)
+  [ ] Set LATE_CUTOFF_TIME to 10:15 and EARLY_CHECKOUT_CUTOFF_TIME to 18:00
 
 PHASE 7: TESTING
   [ ] Opened index.html → admin login works

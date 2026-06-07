@@ -359,15 +359,18 @@
                 <th>Employee ID</th>
                 <th>Name</th>
                 <th>Date</th>
+                <th>Day</th>
                 <th>Check-In</th>
                 <th>Check-Out</th>
                 <th>Status</th>
+                <th>Late Reason</th>
+                <th>Early Reason</th>
                 <th>GPS Location</th>
                 <th>Device</th>
               </tr>
             </thead>
             <tbody id="reportTableBody">
-              <tr><td colspan="9" class="table-empty">
+              <tr><td colspan="12" class="table-empty">
                 Select a report type and click Generate.
               </td></tr>
             </tbody>
@@ -542,7 +545,7 @@
       document.getElementById('printGeneratedAt').textContent = new Date().toLocaleString('en-BD');
 
       // Show loading
-      document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Generating report…</td></tr>';
+      document.getElementById('reportTableBody').innerHTML = '<tr><td colspan="12" class="table-empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Generating report…</td></tr>';
       showReportResults();
 
       try {
@@ -576,7 +579,7 @@
 
       } catch(err) {
         document.getElementById('reportTableBody').innerHTML =
-          `<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-triangle-exclamation gold-text"></i> ${err.message}</td></tr>`;
+          `<tr><td colspan="12" class="table-empty"><i class="fa-solid fa-triangle-exclamation gold-text"></i> ${err.message}</td></tr>`;
       }
     }
 
@@ -602,7 +605,7 @@
       document.getElementById('reportTableCount').textContent = records.length + ' records';
 
       if (records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No records found for the selected criteria.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="table-empty">No records found for the selected criteria.</td></tr>';
         return;
       }
 
@@ -612,12 +615,19 @@
           <td><code style="color:var(--gold)">${r.employeeId || '—'}</code></td>
           <td>${r.employeeName || '—'}</td>
           <td>${r.date || '—'}</td>
+          <td>${r.day || '—'}</td>
           <td>${r.checkIn || '—'}</td>
           <td>${r.checkOut || '<span style="color:#555">—</span>'}</td>
           <td>
             <span class="status-badge status-badge--${r.status === 'Present' ? 'present' : 'late'}">
               ${r.status || '—'}
             </span>
+          </td>
+          <td style="font-size:.78rem;color:#888;max-width:170px;white-space:normal">
+            ${r.lateCheckInReason ? escapeHTML(r.lateCheckInReason) : '—'}
+          </td>
+          <td style="font-size:.78rem;color:#888;max-width:170px;white-space:normal">
+            ${r.earlyCheckoutReason ? escapeHTML(r.earlyCheckoutReason) : '—'}
           </td>
           <td>
             ${r.latitude
@@ -781,10 +791,11 @@
     // ── CSV Export ────────────────────────────
     function exportReportCSV() {
       if (!allReportData.length) { showToast('error', 'No data to export.'); return; }
-      const headers = ['Att ID','Emp ID','Name','Date','Check-In','Check-Out','Status','Lat','Lng','Device'];
+      const headers = ['Att ID','Emp ID','Name','Date','Day','Check-In','Late Check-In Reason','Check-Out','Status','Early Check-Out Reason','Lat','Lng','Device'];
       const rows = allReportData.map(r => [
-        r.id, r.employeeId, r.employeeName, r.date,
-        r.checkIn, r.checkOut, r.status, r.latitude, r.longitude, r.deviceInfo
+        r.id, r.employeeId, r.employeeName, r.date, r.day,
+        r.checkIn, r.lateCheckInReason, r.checkOut, r.status, r.earlyCheckoutReason,
+        r.latitude, r.longitude, r.deviceInfo
       ]);
       downloadCSV([headers, ...rows], 'TripFlyBD_Report_' + new Date().toISOString().split('T')[0] + '.csv');
     }

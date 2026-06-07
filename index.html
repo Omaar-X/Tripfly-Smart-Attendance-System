@@ -325,7 +325,7 @@
       if (!API.isConfigured()) {
         // Read stored credentials from localStorage (or use defaults)
         const storedUser = localStorage.getItem('adminUsername') || 'admin';
-        const storedPass = localStorage.getItem('adminPassword') || 'admin123';
+        const storedPass = localStorage.getItem('adminPassword') || 'razib@123';
 
         if (username === storedUser && password === storedPass) {
           showAlert(alert, 'success', 'Login successful! Redirecting…');

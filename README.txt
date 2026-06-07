@@ -141,6 +141,7 @@ TAB 1: Employees
 TAB 2: Attendance
   Columns: Attendance ID | Employee ID | Employee Name | Date |
            Check-In Time | Check-Out Time | Status |
+           Day | Late Check-In Reason | Early Check-Out Reason |
            Latitude | Longitude | Device Info | QR Token | Timestamp
 
 TAB 3: QR_Tokens
@@ -154,10 +155,12 @@ TAB 4: Settings
   OFFICE_LATITUDE      │ 23.8103        ← YOUR OFFICE LAT
   OFFICE_LONGITUDE     │ 90.4125        ← YOUR OFFICE LNG
   ALLOWED_RADIUS       │ 100            ← metres radius
-  OFFICE_START_TIME    │ 09:00          ← HH:MM 24-hour
+  OFFICE_START_TIME    │ 10:00          ← HH:MM 24-hour
+  LATE_CUTOFF_TIME     │ 10:15          ← reason required after this
+  EARLY_CHECKOUT_CUTOFF_TIME │ 18:00    ← reason required before this
   QR_EXPIRY_SECONDS    │ 30             ← 15-120 seconds
   ADMIN_USERNAME       │ admin
-  ADMIN_PASSWORD       │ admin123       ← CHANGE THIS!
+  ADMIN_PASSWORD       │ razib@123      ← CHANGE THIS!
 
 HOW TO FIND YOUR OFFICE COORDINATES:
   1. Open Google Maps: https://maps.google.com
@@ -306,7 +309,7 @@ COMPLETE STEP-BY-STEP WORKFLOW:
 
 FOR ADMIN (office display computer):
   1. Open admin.html on desktop/laptop browser
-  2. Log in: username=admin, password=admin123
+  2. Log in: username=admin, password=razib@123
   3. Click "QR Station" in sidebar
   4. The live QR code is displayed on screen
   5. The QR automatically refreshes every 30 seconds
@@ -350,7 +353,7 @@ FOR BEST QR SCANNING RESULTS:
 
 URL: admin.html
 
-LOGIN: admin / admin123 (change in Settings → Admin Credentials)
+LOGIN: admin / razib@123 (change in Settings → Admin Credentials)
 
 SECTIONS (sidebar navigation):
 
@@ -563,7 +566,7 @@ SECURITY MECHANISMS:
    - All QR tokens: validated against QR_Tokens sheet
 
 IMPORTANT SECURITY NOTES:
-  ⚠ Change admin password from 'admin123' immediately
+  ⚠ Change admin password from 'razib@123' immediately
   ⚠ Change employee PINs from defaults before going live
   ⚠ Use HTTPS in production (required for GPS on mobile)
   ⚠ The Apps Script Web App URL is publicly accessible —
@@ -575,7 +578,7 @@ IMPORTANT SECURITY NOTES:
 
 ADMIN LOGIN:
   Username: admin
-  Password: admin123
+  Password: razib@123
   Page: index.html (Admin tab)
 
 EMPLOYEE LOGINS:

@@ -180,8 +180,18 @@ async function loadTodayTable() {
             <div style="font-size:.72rem;color:var(--text-muted)">${r.employeeId}</div>
           </td>
           <td style="font-size:.82rem;color:var(--text-secondary)">${dept}</td>
-          <td style="font-weight:500">${r.checkIn  || '—'}</td>
-          <td style="color:var(--text-muted)">${r.checkOut || '—'}</td>
+          <td style="font-weight:500">
+            <div>${r.checkIn || '—'}</div>
+            ${r.lateCheckInReason
+              ? `<div style="font-size:.7rem;color:#f59e0b;max-width:150px;white-space:normal">${escapeHTML(r.lateCheckInReason)}</div>`
+              : ''}
+          </td>
+          <td style="color:var(--text-muted)">
+            <div>${r.checkOut || '—'}</div>
+            ${r.earlyCheckoutReason
+              ? `<div style="font-size:.7rem;color:#f59e0b;max-width:150px;white-space:normal">${escapeHTML(r.earlyCheckoutReason)}</div>`
+              : ''}
+          </td>
           <td>
             <span class="status-badge status-badge--${(r.status || '').toLowerCase()}">
               ${r.status || '—'}

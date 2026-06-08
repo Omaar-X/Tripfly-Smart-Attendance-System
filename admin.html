@@ -88,6 +88,10 @@
         <i class="fa-solid fa-ranking-star"></i>
         <span>Ranking</span>
       </a>
+      <a class="sidebar__link" href="#" data-section="leave" onclick="navigateTo('leave', this)">
+        <i class="fa-solid fa-file-signature"></i>
+        <span>Leave</span>
+      </a>
       <a class="sidebar__link" href="#" data-section="settings" onclick="navigateTo('settings', this)">
         <i class="fa-solid fa-sliders"></i>
         <span>Settings</span>
@@ -649,6 +653,47 @@
       </section><!-- /#section-ranking -->
 
       <!-- ══════════════════════════════
+           SECTION: LEAVE APPLICATIONS
+      ══════════════════════════════ -->
+      <section class="section hidden" id="section-leave">
+
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fa-solid fa-file-signature gold-text"></i>
+            Leave Applications
+          </h2>
+          <p class="section-subtitle">Review employee leave requests and approve or reject</p>
+        </div>
+
+        <div class="glass-card filter-bar">
+          <div class="filter-bar__group">
+            <label class="filter-label"><i class="fa-solid fa-filter"></i> Status</label>
+            <select id="leaveStatusFilter" class="filter-input filter-select" onchange="loadLeaveApplications()">
+              <option value="">All</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="filter-bar__actions">
+            <button class="btn-gold" onclick="loadLeaveApplications()">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card" style="padding:1.25rem">
+          <div class="leave-admin-list" id="leaveAdminList">
+            <div class="emp-grid__loading">
+              <i class="fa-solid fa-circle-notch fa-spin gold-text"></i>
+              <span>Loading leave applications…</span>
+            </div>
+          </div>
+        </div>
+
+      </section><!-- /#section-leave -->
+
+      <!-- ══════════════════════════════
            SECTION: SETTINGS
       ══════════════════════════════ -->
       <section class="section hidden" id="section-settings">
@@ -929,6 +974,7 @@
       'employees':   'Employee Management',
       'analytics':   'Analytics',
       'ranking':     'Employee Ranking',
+      'leave':       'Leave Applications',
       'settings':    'Settings',
     };
 
@@ -963,6 +1009,7 @@
         case 'employees':    loadEmployees(); loadPendingEmployees(); break;
         case 'analytics':    loadCharts();        break;
         case 'ranking':      loadAdminRanking();   break;
+        case 'leave':        loadLeaveApplications(); break;
         case 'settings':     loadSettings();      break;
       }
     }
@@ -1078,6 +1125,90 @@
         }
       } catch (err) {
         showToast('error', 'Error: ' + err.message);
+        btn.disabled = false;
+      }
+    }
+
+    async function loadLeaveApplications() {
+      const list = document.getElementById('leaveAdminList');
+      if (!list) return;
+      list.innerHTML = '<div class="emp-grid__loading"><i class="fa-solid fa-circle-notch fa-spin gold-text"></i><span>Loading leave applications…</span></div>';
+
+      try {
+        const status = document.getElementById('leaveStatusFilter')?.value || '';
+        const params = {
+          action: 'getLeaveApplications',
+          adminToken: getAdminSession()?.token || '',
+        };
+        if (status) params.status = status;
+
+        const result = await API.get(params);
+        if (!result.success) throw new Error(result.message || 'Could not load leave applications.');
+
+        const leaves = result.data || [];
+        if (!leaves.length) {
+          list.innerHTML = '<p class="table-empty" style="text-align:center;padding:2rem">No leave applications found.</p>';
+          return;
+        }
+
+        list.innerHTML = leaves.map(item => {
+          const isPending = item.status === 'Pending';
+          const escapedId = String(item.id).replace(/'/g, "\\'");
+          const empName = String(item.employeeName || '').replace(/'/g, "\\'");
+          return `
+            <div class="leave-admin-item">
+              <div class="leave-admin-item__top">
+                <div>
+                  <div class="leave-admin-item__name">${item.employeeName} <span>${item.employeeId}</span></div>
+                  <div class="leave-admin-item__meta">${item.department || '—'} · ${item.startDate}${item.endDate && item.endDate !== item.startDate ? ' to ' + item.endDate : ''}</div>
+                </div>
+                <span class="status-badge status-badge--${String(item.status || '').toLowerCase()}">${item.status}</span>
+              </div>
+              <div class="leave-admin-item__reason">
+                <strong>Reason:</strong> ${escapeHTML(item.reason || '')}
+              </div>
+              <pre class="leave-draft-box leave-draft-box--admin">${escapeHTML(item.formalDraft || '')}</pre>
+              ${item.adminNote ? `<div class="leave-item__note"><i class="fa-solid fa-message"></i> ${escapeHTML(item.adminNote)}</div>` : ''}
+              ${isPending ? `
+              <div class="leave-admin-item__actions">
+                <button class="btn-gold btn-sm" onclick="updateLeaveStatus('${escapedId}','Approved','${empName}',this)">
+                  <i class="fa-solid fa-check"></i> Approve
+                </button>
+                <button class="btn-danger btn-sm" onclick="updateLeaveStatus('${escapedId}','Rejected','${empName}',this)">
+                  <i class="fa-solid fa-xmark"></i> Reject
+                </button>
+              </div>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        list.innerHTML = `<p class="table-empty" style="text-align:center;padding:2rem">${escapeHTML(err.message)}</p>`;
+      }
+    }
+
+    async function updateLeaveStatus(leaveId, status, empName, btn) {
+      let adminNote = '';
+      if (status === 'Rejected') {
+        adminNote = window.prompt(`${empName} এর leave reject note লিখুন (optional):`) || '';
+      }
+      if (status === 'Approved') {
+        adminNote = window.prompt(`${empName} এর leave approve note লিখুন (optional):`) || '';
+      }
+
+      btn.disabled = true;
+      try {
+        const result = await API.post({
+          action: 'updateLeaveApplicationStatus',
+          leaveId,
+          status,
+          adminNote,
+          adminToken: getAdminSession()?.token || '',
+        });
+        if (!result.success) throw new Error(result.message || 'Update failed.');
+        showToast(status === 'Approved' ? 'success' : 'info', `${empName} leave ${status.toLowerCase()}.`);
+        loadLeaveApplications();
+      } catch (err) {
+        showToast('error', err.message || 'Leave update failed.');
         btn.disabled = false;
       }
     }

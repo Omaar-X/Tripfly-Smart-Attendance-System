@@ -299,6 +299,48 @@
         </div>
       </div>
 
+      <div class="glass-card profile-month-stats">
+        <h3 class="card-title-sm">
+          <i class="fa-solid fa-file-signature gold-text"></i>
+          Leave Application
+        </h3>
+        <form id="leaveApplicationForm" class="settings-form" onsubmit="submitLeaveApplication(event)">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Start Date</label>
+              <input type="date" id="leaveStartDate" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Date</label>
+              <input type="date" id="leaveEndDate" class="form-input" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reason</label>
+            <textarea id="leaveReason" class="form-input" rows="3" maxlength="250" placeholder="Leave reason লিখুন" required></textarea>
+          </div>
+          <div class="leave-draft-box" id="leaveDraftPreview">
+            Reason দিলে formal draft এখানে ready হবে।
+          </div>
+          <button class="btn-gold btn-block" type="submit" id="leaveSubmitBtn">
+            <i class="fa-solid fa-paper-plane"></i>
+            Submit Leave Application
+          </button>
+        </form>
+      </div>
+
+      <div class="glass-card profile-month-stats">
+        <h3 class="card-title-sm">
+          <i class="fa-solid fa-list-check gold-text"></i>
+          My Leave Status
+        </h3>
+        <div class="leave-list" id="employeeLeaveList">
+          <div class="emp-grid__loading">
+            <i class="fa-solid fa-circle-notch fa-spin gold-text"></i>
+          </div>
+        </div>
+      </div>
+
       <!-- Sign out -->
       <button class="btn-gold-outline btn-block" style="margin-top:1.5rem" onclick="empLogout()">
         <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -452,9 +494,25 @@
         if (result.success && result.data.length > 0) {
           const rec = result.data[0];
 
+          if (!rec.checkIn) {
+            bannerIcon.innerHTML = `<i class="fa-solid fa-clock"></i>`;
+            bannerIcon.className = 'today-status-banner__icon today-status-banner__icon--pending';
+            bannerVal.textContent = rec.status || 'Absence';
+            bannerTimes.innerHTML = `<span>QR scan করুন — Check-In হবে</span>`;
+            alreadyDiv.classList.add('hidden');
+            checkoutBtn.classList.add('hidden');
+            startBtn.disabled = false;
+            startBtn.style.opacity = '';
+            startBtn.className = 'btn-scanner-start btn-gold';
+            startBtn.onclick = openScanPage;
+            startBtn.innerHTML = '<i class="fa-solid fa-camera"></i><span>Scan QR — Check-In</span>';
+            document.getElementById('scannerInstructions').style.opacity = '';
+            return;
+          }
+
           bannerIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
           bannerIcon.className = 'today-status-banner__icon today-status-banner__icon--' +
-            (rec.status === 'Present' ? 'present' : 'late');
+            ((rec.status || '').toLowerCase());
           bannerVal.textContent = rec.status;
           bannerTimes.innerHTML = `
             <span style="color:var(--gold)">
@@ -523,7 +581,10 @@
 
       if (tabId === 'history') loadHistory();
       if (tabId === 'ranking') loadEmployeeRanking();
-      if (tabId === 'profile') loadProfileMonthStats();
+      if (tabId === 'profile') {
+        loadProfileMonthStats();
+        loadEmployeeLeaveApplications();
+      }
     }
 
     // ── Manual fallback checkout (if camera unavailable) ─
@@ -629,10 +690,14 @@
         const records  = result.data.filter(r => r.date && r.date.startsWith(prefix));
 
         // Calculate stats
-        let present = 0, late = 0;
-        records.forEach(r => { if (r.status === 'Late') late++; else present++; });
+        let present = 0, late = 0, absence = 0;
+        records.forEach(r => {
+          if (r.status === 'Late') late++;
+          else if (r.status === 'Present') present++;
+          else if (r.status === 'Absence') absence++;
+        });
         const daysInMonth = new Date(year, parseInt(month), 0).getDate();
-        const absent = Math.max(0, daysInMonth - (present + late));
+        const absent = Math.max(absence, daysInMonth - (present + late));
         const rate   = daysInMonth > 0 ? Math.round(((present + late) / daysInMonth) * 100) : 0;
 
         document.getElementById('histPresent').textContent = present;
@@ -667,7 +732,7 @@
               </div>` : ''}
             </div>
             <div class="history-card__status">
-              <span class="status-badge status-badge--${r.status === 'Present' ? 'present' : 'late'}">
+              <span class="status-badge status-badge--${(r.status || '').toLowerCase()}">
                 ${r.status}
               </span>
             </div>
@@ -731,6 +796,118 @@
       }
     }
 
+    function buildLeaveDraftPreview() {
+      if (!CURRENT_EMPLOYEE) return '';
+      const startDate = document.getElementById('leaveStartDate')?.value || '';
+      const endDate = document.getElementById('leaveEndDate')?.value || startDate;
+      const reason = (document.getElementById('leaveReason')?.value || '').replace(/\s+/g, ' ').trim();
+      const dateRange = startDate && endDate && startDate !== endDate ? `${startDate} to ${endDate}` : (startDate || 'selected date');
+
+      return [
+        'To',
+        'The Management',
+        'Trip Fly BD',
+        '',
+        'Subject: Application for Leave',
+        '',
+        'Dear Sir/Madam,',
+        '',
+        `I, ${CURRENT_EMPLOYEE.name} (${CURRENT_EMPLOYEE.id}), from ${CURRENT_EMPLOYEE.department}, would like to request leave for ${dateRange}.`,
+        `Reason: ${reason || 'your reason will appear here'}`,
+        '',
+        'I request you to kindly approve my leave application.',
+        '',
+        'Sincerely,',
+        CURRENT_EMPLOYEE.name
+      ].join('\n');
+    }
+
+    function updateLeaveDraftPreview() {
+      const preview = document.getElementById('leaveDraftPreview');
+      if (!preview) return;
+      preview.textContent = buildLeaveDraftPreview();
+    }
+
+    async function submitLeaveApplication(event) {
+      event.preventDefault();
+      const btn = document.getElementById('leaveSubmitBtn');
+      const startDate = document.getElementById('leaveStartDate').value;
+      const endDate = document.getElementById('leaveEndDate').value || startDate;
+      const reason = document.getElementById('leaveReason').value.replace(/\s+/g, ' ').trim();
+
+      if (!startDate || !endDate || !reason) {
+        showToast('warning', 'Leave date and reason required.');
+        return;
+      }
+      if (endDate < startDate) {
+        showToast('warning', 'End date start date এর আগে হতে পারবে না।');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting…';
+      try {
+        const result = await API.post({
+          action: 'submitLeaveApplication',
+          employeeId: CURRENT_EMPLOYEE.id,
+          startDate,
+          endDate,
+          reason,
+        });
+
+        if (!result.success) throw new Error(result.message || 'Submit failed.');
+
+        document.getElementById('leaveApplicationForm').reset();
+        setDefaultLeaveDates();
+        updateLeaveDraftPreview();
+        await loadEmployeeLeaveApplications();
+        showToast('success', 'Leave application submitted. Admin approval pending.');
+      } catch (err) {
+        showToast('error', err.message || 'Leave submit failed.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Leave Application';
+      }
+    }
+
+    async function loadEmployeeLeaveApplications() {
+      const list = document.getElementById('employeeLeaveList');
+      if (!list || !CURRENT_EMPLOYEE) return;
+      list.innerHTML = '<div class="emp-grid__loading"><i class="fa-solid fa-circle-notch fa-spin gold-text"></i><span>Loading leave status…</span></div>';
+
+      try {
+        const result = await API.get({ action: 'getLeaveApplications', employeeId: CURRENT_EMPLOYEE.id });
+        if (!result.success) throw new Error(result.message || 'Could not load leave applications.');
+        const leaves = result.data || [];
+
+        if (!leaves.length) {
+          list.innerHTML = '<p class="table-empty" style="text-align:center;padding:1.2rem">No leave applications yet.</p>';
+          return;
+        }
+
+        list.innerHTML = leaves.map(item => `
+          <div class="leave-item">
+            <div class="leave-item__main">
+              <div class="leave-item__title">${item.startDate}${item.endDate && item.endDate !== item.startDate ? ' to ' + item.endDate : ''}</div>
+              <div class="leave-item__reason">${escapeHTML(item.reason || '')}</div>
+              ${item.adminNote ? `<div class="leave-item__note"><i class="fa-solid fa-message"></i> ${escapeHTML(item.adminNote)}</div>` : ''}
+            </div>
+            <span class="status-badge status-badge--${String(item.status || '').toLowerCase()}">${item.status}</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        list.innerHTML = `<p class="table-empty" style="text-align:center;padding:1.2rem">${escapeHTML(err.message)}</p>`;
+      }
+    }
+
+    function setDefaultLeaveDates() {
+      const today = getTodayString();
+      const start = document.getElementById('leaveStartDate');
+      const end = document.getElementById('leaveEndDate');
+      if (start && !start.value) start.value = today;
+      if (end && !end.value) end.value = today;
+    }
+
     // ── Success popup ─────────────────────────
     function showSuccessPopup(data) {
       const overlay = document.getElementById('successOverlay');
@@ -778,7 +955,7 @@
       `;
 
       document.getElementById('successStatus').innerHTML = `
-        <span class="status-badge status-badge--${data.status === 'Present' ? 'present' : 'late'} status-badge--lg">
+        <span class="status-badge status-badge--${(data.status || '').toLowerCase()} status-badge--lg">
           <i class="fa-solid fa-${data.status === 'Present' ? 'circle-check' : 'clock'}"></i>
           ${data.status}
         </span>
@@ -827,6 +1004,12 @@
 
       // Set history month to current
       document.getElementById('historyMonth').value = new Date().getMonth() + 1;
+      setDefaultLeaveDates();
+      updateLeaveDraftPreview();
+      ['leaveStartDate', 'leaveEndDate', 'leaveReason'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateLeaveDraftPreview);
+      });
 
     });
   </script>

@@ -619,7 +619,7 @@
           <td>${r.checkIn || '—'}</td>
           <td>${r.checkOut || '<span style="color:#555">—</span>'}</td>
           <td>
-            <span class="status-badge status-badge--${r.status === 'Present' ? 'present' : 'late'}">
+            <span class="status-badge status-badge--${(r.status || '').toLowerCase()}">
               ${r.status || '—'}
             </span>
           </td>

@@ -26,6 +26,7 @@ const SHEET_ATTENDANCE = 'Attendance';
 const SHEET_QR_TOKENS  = 'QR_Tokens';
 const SHEET_SETTINGS   = 'Settings';
 const SHEET_LOGS       = 'Logs';
+const SHEET_LEAVE      = 'Leave_Applications';
 const DEFAULT_OFFICE_START_TIME = '10:00';
 const DEFAULT_LATE_CUTOFF_TIME = '10:15';
 const EARLY_CHECKOUT_CUTOFF_TIME = '18:00';
@@ -103,6 +104,12 @@ function doGet(e) {
       case 'getPendingEmployees':
         result = getPendingEmployees();
         break;
+      case 'getLeaveApplications':
+        result = getLeaveApplications(params);
+        break;
+      case 'getPendingLeaveApplications':
+        result = getPendingLeaveApplications(params);
+        break;
       default:
         result = { success: false, message: 'Unknown action: ' + action };
     }
@@ -171,6 +178,12 @@ function doPost(e) {
         break;
       case 'getPendingEmployees':
         result = getPendingEmployees();
+        break;
+      case 'submitLeaveApplication':
+        result = submitLeaveApplication(body);
+        break;
+      case 'updateLeaveApplicationStatus':
+        result = updateLeaveApplicationStatus(body);
         break;
       default:
         result = { success: false, message: 'Unknown action: ' + action };
@@ -247,6 +260,15 @@ function buildAttendanceRow(sheet, values) {
   return row;
 }
 
+function setAttendanceRowValues(sheet, rowNumber, values) {
+  const map = getAttendanceHeaderMap(sheet);
+  Object.keys(values).forEach(header => {
+    if (map[header] !== undefined) {
+      sheet.getRange(rowNumber, map[header] + 1).setValue(values[header]);
+    }
+  });
+}
+
 function applyAttendanceSheetFormatting(sheet) {
   if (!sheet || sheet.getLastRow() === 0) return;
   const lastRow = sheet.getLastRow();
@@ -255,76 +277,141 @@ function applyAttendanceSheetFormatting(sheet) {
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, lastCol)
     .setFontWeight('bold')
-    .setBackground('#1a1a1a')
-    .setFontColor('#D4AF37');
+    .setBackground('#4cc6cf')
+    .setFontColor('#000000')
+    .setHorizontalAlignment('center');
 
   if (lastRow <= 1) return;
 
   const dateCol = getHeaderColumnFromRow(sheet, 'Date') || 4;
+  const checkInCol = getHeaderColumnFromRow(sheet, 'Check-In Time') || 5;
+  const checkOutCol = getHeaderColumnFromRow(sheet, 'Check-Out Time') || 6;
+  const statusCol = getHeaderColumnFromRow(sheet, 'Status') || 7;
   const dayCol  = getHeaderColumnFromRow(sheet, 'Day');
-  const rows    = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-  // Clear all previous data-row formatting
   sheet.getRange(2, 1, lastRow - 1, lastCol)
-    .setBackground(null)
-    .setBorder(false, false, false, false, false, false);
+    .setFontColor('#000000')
+    .setBorder(false, false, false, false, false, false)
+    .setVerticalAlignment('middle');
 
-  // Collect unique dates in order + all sheet-row numbers per date
-  const uniqueDates = [];
-  const dateRows = {};
-  rows.forEach((row, idx) => {
-    const dateStr = normalizeDateValue(row[dateCol - 1]);
-    if (!dateStr) return;
-    if (uniqueDates.indexOf(dateStr) === -1) {
-      uniqueDates.push(dateStr);
-      dateRows[dateStr] = [];
-    }
-    dateRows[dateStr].push(idx + 2);
+  for (let row = 2; row <= lastRow; row++) {
+    const bg = (row % 2 === 0) ? '#ffffff' : '#dff7f9';
+    sheet.getRange(row, 1, 1, lastCol).setBackground(bg);
+  }
+
+  [dateCol, checkInCol, checkOutCol].forEach(col => {
+    if (col) sheet.getRange(2, col, lastRow - 1, 1).setHorizontalAlignment('center');
   });
 
-  // Two alternating colors — reset per 6-day group so each group looks same
-  const COLOR_A = '#f0f4f8'; // very light blue-gray
-  const COLOR_B = '#ffffff'; // white
+  if (statusCol) {
+    const statusRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Present', 'Late', 'Absence'], true)
+      .setAllowInvalid(false)
+      .build();
+    sheet.getRange(2, statusCol, lastRow - 1, 1).setDataValidation(statusRule);
+  }
 
-  uniqueDates.forEach((dateStr, idx) => {
-    const posInGroup = idx % 6;                  // 0..5 within the current 6-day group
-    const bgColor    = posInGroup % 2 === 0 ? COLOR_A : COLOR_B;
-    const isGroupEnd = (idx + 1) % 6 === 0;
-    const rowNums    = dateRows[dateStr];
-
-    // Color every row belonging to this date
-    rowNums.forEach(rowNum => {
-      sheet.getRange(rowNum, 1, 1, lastCol).setBackground(bgColor);
-    });
-
-    // Every 6th date → thick gold border (visual "space") + yellow marker on Date cell
-    if (isGroupEnd) {
-      const lastRowNum = rowNums[rowNums.length - 1];
-
-      sheet.getRange(lastRowNum, 1, 1, lastCol)
-        .setBorder(null, null, true, null, null, null,
-          '#D4AF37', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-
-      // Mark the Date column — always visible
-      sheet.getRange(lastRowNum, dateCol)
-        .setBackground('#ffd966')
-        .setFontWeight('bold');
-
-      // Also mark the Day column if present
-      if (dayCol) {
-        sheet.getRange(lastRowNum, dayCol)
-          .setBackground('#ffd966')
-          .setFontWeight('bold')
-          .setNote('6-day week end');
-      }
-    }
-  });
+  if (dayCol) {
+    const dayRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], true)
+      .setAllowInvalid(false)
+      .build();
+    sheet.getRange(2, dayCol, lastRow - 1, 1).setDataValidation(dayRule);
+  }
 }
 
 function getHeaderColumnFromRow(sheet, header) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const idx = headers.map(h => String(h || '').trim()).indexOf(header);
   return idx === -1 ? 0 : idx + 1;
+}
+
+function ensureDailyAttendanceRows(dateStr) {
+  const date = dateStr || getTodayDate();
+  const empSheet = getSheet(SHEET_EMPLOYEES);
+  const attSheet = getSheet(SHEET_ATTENDANCE);
+  ensureAttendanceSheetSchema(attSheet, false);
+
+  const empData = empSheet.getDataRange().getValues();
+  const attData = attSheet.getDataRange().getValues();
+  const existing = {};
+
+  for (let i = 1; i < attData.length; i++) {
+    const row = attData[i];
+    if (row[1] && normalizeDateValue(row[3]) === date) {
+      existing[row[1].toString()] = true;
+    }
+  }
+
+  const dayName = getDayNameFromDateString(date);
+  let added = 0;
+  for (let i = 1; i < empData.length; i++) {
+    const emp = empData[i];
+    if (!emp[0] || emp[6] !== 'Active') continue;
+    const empId = emp[0].toString();
+    if (existing[empId]) continue;
+
+    attSheet.appendRow(buildAttendanceRow(attSheet, {
+      'Attendance ID': 'ABS' + date.replace(/-/g, '') + empId.replace(/[^A-Za-z0-9]/g, ''),
+      'Employee ID': emp[0],
+      'Employee Name': emp[1],
+      'Date': date,
+      'Check-In Time': '',
+      'Check-Out Time': '',
+      'Status': 'Absence',
+      'Day': dayName,
+      'Late Check-In Reason': '',
+      'Early Check-Out Reason': '',
+    }));
+    added++;
+  }
+
+  if (added > 0) applyAttendanceSheetFormatting(attSheet);
+  return added;
+}
+
+function fillMissingAttendanceDayValues(sheet) {
+  const attSheet = sheet || getSheet(SHEET_ATTENDANCE);
+  if (attSheet.getLastRow() <= 1) return 0;
+
+  const dateCol = getHeaderColumnFromRow(attSheet, 'Date') || 4;
+  const dayCol  = getHeaderColumnFromRow(attSheet, 'Day');
+  if (!dayCol) return 0;
+
+  const lastRow = attSheet.getLastRow();
+  const rows = attSheet.getRange(2, 1, lastRow - 1, attSheet.getLastColumn()).getValues();
+  let updated = 0;
+
+  rows.forEach((row, idx) => {
+    const rowNum = idx + 2;
+    const dayVal = String(row[dayCol - 1] || '').trim();
+    if (dayVal) return;
+
+    const dateStr = normalizeDateValue(row[dateCol - 1]);
+    const dayName = getDayNameFromDateString(dateStr);
+    if (!dayName) return;
+
+    attSheet.getRange(rowNum, dayCol).setValue(dayName);
+    updated++;
+  });
+
+  return updated;
+}
+
+function maintainAttendanceSheetForDate(dateStr) {
+  const date = dateStr || getTodayDate();
+  const sheet = getSheet(SHEET_ATTENDANCE);
+
+  ensureAttendanceSheetSchema(sheet, true);
+  const added = ensureDailyAttendanceRows(date);
+  const dayUpdates = fillMissingAttendanceDayValues(sheet);
+  applyAttendanceSheetFormatting(sheet);
+
+  return {
+    date: date,
+    addedAbsenceRows: added,
+    filledDayRows: dayUpdates,
+  };
 }
 
 function ensureSettingsDefaults(sheet) {
@@ -398,7 +485,7 @@ function initializeSheets() {
       'Date', 'Check-In Time', 'Check-Out Time',
       'Status', 'Day', 'Late Check-In Reason', 'Early Check-Out Reason'
     ]);
-    attSheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#1a1a1a').setFontColor('#D4AF37');
+    attSheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#4cc6cf').setFontColor('#000000');
   }
   ensureAttendanceSheetSchema(attSheet, true);
 
@@ -409,6 +496,8 @@ function initializeSheets() {
     logsSheet.appendRow(['Attendance ID', 'Latitude', 'Longitude', 'Device Info', 'QR Token', 'Timestamp']);
     logsSheet.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#1a1a1a').setFontColor('#D4AF37');
   }
+
+  ensureLeaveApplicationsSheet();
 
   // ── QR_Tokens ─────────────────────────────
   let qrSheet = ss.getSheetByName(SHEET_QR_TOKENS);
@@ -805,8 +894,9 @@ function markAttendance(body) {
 
   // 3. Check for duplicate attendance today
   const today = getTodayDate();
+  maintainAttendanceSheetForDate(today);
   const existing = getEmployeeAttendanceToday(employeeId, today);
-  if (existing) {
+  if (existing && existing.checkIn) {
     return {
       success:   false,
       message:   'Attendance already recorded for today',
@@ -852,7 +942,7 @@ function markAttendance(body) {
   // 8. Save attendance
   const attSheet = getSheet(SHEET_ATTENDANCE);
   ensureAttendanceSheetSchema(attSheet, false);
-  attSheet.appendRow(buildAttendanceRow(attSheet, {
+  const rowValues = {
     'Attendance ID': attId,
     'Employee ID': employeeId,
     'Employee Name': empInfo.name,
@@ -863,7 +953,12 @@ function markAttendance(body) {
     'Day': dayName,
     'Late Check-In Reason': lateReason,
     'Early Check-Out Reason': '',
-  }));
+  };
+  if (existing && existing.rowNumber && existing.status === 'Absence') {
+    setAttendanceRowValues(attSheet, existing.rowNumber, rowValues);
+  } else {
+    attSheet.appendRow(buildAttendanceRow(attSheet, rowValues));
+  }
   applyAttendanceSheetFormatting(attSheet);
 
   // Technical data → Logs sheet (separate from main attendance view)
@@ -894,7 +989,7 @@ function checkOut(body) {
   if (!employeeId) return { success: false, message: 'Employee ID required' };
 
   const sheet = getSheet(SHEET_ATTENDANCE);
-  ensureAttendanceSheetSchema(sheet, false);
+  maintainAttendanceSheetForDate(getTodayDate());
   const data  = sheet.getDataRange().getValues();
   const today = getTodayDate();
   const now   = new Date();
@@ -920,6 +1015,9 @@ function checkOut(body) {
 
   for (let i = data.length - 1; i >= 1; i--) {
     if (data[i][1].toString() === employeeId.toString() && normalizeDateValue(data[i][3]) === today) {
+      if (!data[i][4]) {
+        return { success: false, message: 'No check-in found for today' };
+      }
       if (data[i][5]) {
         return { success: false, message: 'Already checked out today' };
       }
@@ -948,13 +1046,15 @@ function checkOut(body) {
 // ATTENDANCE QUERIES
 // ─────────────────────────────────────────────
 function getAttendance(params) {
+  const filterDate = params.date || '';
+  maintainAttendanceSheetForDate(filterDate || getTodayDate());
+
   const sheet = getSheet(SHEET_ATTENDANCE);
-  ensureAttendanceSheetSchema(sheet, false);
+  ensureAttendanceSheetSchema(sheet, true);
   const data  = sheet.getDataRange().getValues();
   const headerMap = data.length ? buildHeaderMap(data[0]) : {};
   const records = [];
 
-  const filterDate = params.date || '';
   const filterEmp  = params.employeeId || '';
   const limitStr   = params.limit || '100';
   const limit      = parseInt(limitStr);
@@ -963,7 +1063,7 @@ function getAttendance(params) {
     const row = data[i];
     if (!row[0]) continue;
     const dateStr = normalizeDateValue(row[3]);
-    const day = getRowValue(row, headerMap, 'Day', 12) || getDayNameFromDateString(dateStr);
+    const day = getRowValue(row, headerMap, 'Day', 7) || getDayNameFromDateString(dateStr);
     if (filterDate && dateStr !== filterDate) continue;
     if (filterEmp  && row[1].toString() !== filterEmp) continue;
 
@@ -1000,13 +1100,14 @@ function getEmployeeAttendanceToday(employeeId, date) {
     const row = data[i];
     if (row[1].toString() === employeeId.toString() && normalizeDateValue(row[3]) === date) {
       return {
+        rowNumber: i + 1,
         id:      row[0],
         checkIn: row[4],
         checkOut:row[5],
         status:  row[6],
-        day:     getRowValue(row, headerMap, 'Day', 12),
-        lateCheckInReason: getRowValue(row, headerMap, 'Late Check-In Reason', 13),
-        earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 14),
+        day:     getRowValue(row, headerMap, 'Day', 7),
+        lateCheckInReason: getRowValue(row, headerMap, 'Late Check-In Reason', 8),
+        earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 9),
       };
     }
   }
@@ -1017,6 +1118,7 @@ function getEmployeeAttendanceToday(employeeId, date) {
 // DASHBOARD STATISTICS
 // ─────────────────────────────────────────────
 function getDashboardStats() {
+  maintainAttendanceSheetForDate(getTodayDate());
   const empSheet  = getSheet(SHEET_EMPLOYEES);
   const attSheet  = getSheet(SHEET_ATTENDANCE);
   const empData   = empSheet.getDataRange().getValues();
@@ -1039,11 +1141,11 @@ function getDashboardStats() {
     if (normalizeDateValue(attData[i][3]) === today) {
       todayEmpIds.add(attData[i][1].toString());
       if (attData[i][6] === 'Late') lateToday++;
-      else presentToday++;
+      else if (attData[i][6] === 'Present') presentToday++;
     }
   }
 
-  absentToday = Math.max(0, totalEmployees - todayEmpIds.size);
+  absentToday = Math.max(0, totalEmployees - presentToday - lateToday);
 
   return {
     success: true,
@@ -1343,6 +1445,179 @@ function approveEmployee(body) {
 }
 
 // ─────────────────────────────────────────────
+// LEAVE APPLICATIONS
+// ─────────────────────────────────────────────
+function ensureLeaveApplicationsSheet() {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_LEAVE);
+  if (!sheet) sheet = ss.insertSheet(SHEET_LEAVE);
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      'Leave ID', 'Employee ID', 'Employee Name', 'Department',
+      'Start Date', 'End Date', 'Reason', 'Formal Draft',
+      'Status', 'Admin Note', 'Applied At', 'Reviewed At'
+    ]);
+  }
+
+  sheet.getRange(1, 1, 1, 12)
+    .setFontWeight('bold')
+    .setBackground('#4cc6cf')
+    .setFontColor('#000000')
+    .setHorizontalAlignment('center');
+
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 5, sheet.getLastRow() - 1, 2).setHorizontalAlignment('center');
+    sheet.getRange(2, 9, sheet.getLastRow() - 1, 1).setHorizontalAlignment('center');
+  }
+
+  return sheet;
+}
+
+function buildLeaveDraft(employee, startDate, endDate, reason) {
+  const dateRange = startDate === endDate ? startDate : startDate + ' to ' + endDate;
+  return [
+    'To',
+    'The Management',
+    'Trip Fly BD',
+    '',
+    'Subject: Application for Leave',
+    '',
+    'Dear Sir/Madam,',
+    '',
+    'I, ' + employee.name + ' (' + employee.id + '), from ' + employee.department + ', would like to request leave for ' + dateRange + '.',
+    'Reason: ' + reason,
+    '',
+    'I request you to kindly approve my leave application.',
+    '',
+    'Sincerely,',
+    employee.name
+  ].join('\n');
+}
+
+function submitLeaveApplication(body) {
+  const employeeId = (body.employeeId || '').toString().trim();
+  const startDate = normalizeDateValue(body.startDate || '');
+  const endDate = normalizeDateValue(body.endDate || body.startDate || '');
+  const reason = cleanReason(body.reason || '');
+
+  if (!employeeId || !startDate || !endDate || !reason) {
+    return { success: false, message: 'Employee, leave date and reason are required.' };
+  }
+
+  const employee = getEmployeeById(employeeId);
+  if (!employee) return { success: false, message: 'Employee not found.' };
+
+  const sheet = ensureLeaveApplicationsSheet();
+  const now = new Date();
+  const leaveId = 'LV' + Utilities.formatDate(now, 'Asia/Dhaka', 'yyyyMMddHHmmss') + employeeId.replace(/[^A-Za-z0-9]/g, '');
+  const draft = buildLeaveDraft(employee, startDate, endDate, reason);
+
+  sheet.appendRow([
+    leaveId,
+    employee.id,
+    employee.name,
+    employee.department,
+    startDate,
+    endDate,
+    reason,
+    draft,
+    'Pending',
+    '',
+    now.toISOString(),
+    ''
+  ]);
+  ensureLeaveApplicationsSheet();
+
+  return {
+    success: true,
+    message: 'Leave application submitted. Admin approval pending.',
+    data: {
+      id: leaveId,
+      status: 'Pending',
+      formalDraft: draft,
+    },
+  };
+}
+
+function getLeaveApplications(params) {
+  const sheet = ensureLeaveApplicationsSheet();
+  const data = sheet.getDataRange().getValues();
+  const employeeId = (params.employeeId || '').toString().trim();
+  const status = (params.status || '').toString().trim();
+  const adminToken = params.adminToken || '';
+
+  if (!employeeId && !validateAdminSession(adminToken)) {
+    return { success: false, message: 'Admin authorization required.' };
+  }
+
+  const applications = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0]) continue;
+    if (employeeId && row[1].toString() !== employeeId) continue;
+    if (status && row[8].toString() !== status) continue;
+
+    applications.push({
+      id: row[0],
+      employeeId: row[1],
+      employeeName: row[2],
+      department: row[3],
+      startDate: normalizeDateValue(row[4]),
+      endDate: normalizeDateValue(row[5]),
+      reason: row[6],
+      formalDraft: row[7],
+      status: row[8],
+      adminNote: row[9],
+      appliedAt: row[10],
+      reviewedAt: row[11],
+    });
+  }
+
+  applications.sort((a, b) => new Date(b.appliedAt || 0) - new Date(a.appliedAt || 0));
+  return { success: true, data: applications };
+}
+
+function getPendingLeaveApplications(params) {
+  if (!validateAdminSession(params.adminToken || '')) {
+    return { success: false, message: 'Admin authorization required.' };
+  }
+  return getLeaveApplications({ adminToken: params.adminToken, status: 'Pending' });
+}
+
+function updateLeaveApplicationStatus(body) {
+  if (!validateAdminSession(body.adminToken)) {
+    return { success: false, message: 'Admin authorization required.' };
+  }
+
+  const leaveId = (body.leaveId || '').toString().trim();
+  const status = (body.status || '').toString().trim();
+  const adminNote = cleanReason(body.adminNote || '');
+  if (!leaveId || ['Approved', 'Rejected'].indexOf(status) === -1) {
+    return { success: false, message: 'Valid leave ID and status are required.' };
+  }
+
+  const sheet = ensureLeaveApplicationsSheet();
+  const data = sheet.getDataRange().getValues();
+  const reviewedAt = new Date().toISOString();
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === leaveId) {
+      sheet.getRange(i + 1, 9).setValue(status);
+      sheet.getRange(i + 1, 10).setValue(adminNote);
+      sheet.getRange(i + 1, 12).setValue(reviewedAt);
+      return {
+        success: true,
+        message: 'Leave application ' + status.toLowerCase() + '.',
+        data: { id: leaveId, status: status, adminNote: adminNote, reviewedAt: reviewedAt },
+      };
+    }
+  }
+
+  return { success: false, message: 'Leave application not found.' };
+}
+
+// ─────────────────────────────────────────────
 // MIGRATE TECHNICAL COLUMNS TO LOGS SHEET — run once manually
 // Apps Script editor → select moveColumnsToLogsSheet → Run
 // Moves Latitude, Longitude, Device Info, QR Token, Timestamp
@@ -1466,25 +1741,59 @@ function reformatAttendanceSheet() {
     return;
   }
 
-  // Fill in missing Day values for existing rows
-  const dateCol = getHeaderColumnFromRow(sheet, 'Date') || 4;
-  const dayCol  = getHeaderColumnFromRow(sheet, 'Day');
-  if (dayCol) {
-    const lastRow = sheet.getLastRow();
-    const rows = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
-    rows.forEach((row, idx) => {
-      const rowNum  = idx + 2;
-      const dayVal  = String(row[dayCol - 1] || '').trim();
-      if (!dayVal) {
-        const dateStr = normalizeDateValue(row[dateCol - 1]);
-        const dayName = getDayNameFromDateString(dateStr);
-        if (dayName) sheet.getRange(rowNum, dayCol).setValue(dayName);
-      }
-    });
-  }
-
+  fillMissingAttendanceDayValues(sheet);
   applyAttendanceSheetFormatting(sheet);
   Logger.log('Attendance sheet reformatted successfully. Rows: ' + (sheet.getLastRow() - 1));
+}
+
+// ─────────────────────────────────────────────
+// APPLY REQUESTED ATTENDANCE SHEET SETUP — run once manually
+// Keeps visible Attendance sheet clean: dropdowns, teal header,
+// centered Date/Time columns, and today's Absence rows.
+// ─────────────────────────────────────────────
+function applyRequestedAttendanceSheetSetup() {
+  try {
+    deleteTechColumnsFromAttendance();
+  } catch (err) {
+    Logger.log('Tech column cleanup skipped: ' + err.message);
+  }
+
+  runDailyAttendanceMaintenance();
+  Logger.log('Requested attendance sheet setup applied.');
+}
+
+// ─────────────────────────────────────────────
+// DAILY ATTENDANCE MAINTENANCE
+// Run installDailyAttendanceTrigger() once from Apps Script editor.
+// After that, every morning the Attendance sheet keeps the same
+// dropdowns, colors, centered Date/Time columns, and Absence rows.
+// ─────────────────────────────────────────────
+function runDailyAttendanceMaintenance() {
+  const result = maintainAttendanceSheetForDate(getTodayDate());
+  Logger.log(
+    'Daily attendance maintenance complete for ' + result.date +
+    '. Absence rows added: ' + result.addedAbsenceRows +
+    ', Day cells filled: ' + result.filledDayRows
+  );
+  return result;
+}
+
+function installDailyAttendanceTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'runDailyAttendanceMaintenance') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('runDailyAttendanceMaintenance')
+    .timeBased()
+    .everyDays(1)
+    .atHour(6)
+    .create();
+
+  runDailyAttendanceMaintenance();
+  Logger.log('Daily attendance maintenance trigger installed for every day around 6 AM.');
 }
 
 // ─────────────────────────────────────────────

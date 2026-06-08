@@ -434,7 +434,11 @@ async function initPage() {
           <div class="s-done__row"><span>Status</span><span>${rec.status || '—'}</span></div>`;
         showState('Done'); return;
       }
-      _mode = 'checkout'; setModeBanner('checkout', rec.checkIn); setupStartScreen('checkout');
+      if (rec.checkIn) {
+        _mode = 'checkout'; setModeBanner('checkout', rec.checkIn); setupStartScreen('checkout');
+      } else {
+        _mode = 'checkin'; setModeBanner('checkin', null); setupStartScreen('checkin');
+      }
     } else {
       _mode = 'checkin'; setModeBanner('checkin', null); setupStartScreen('checkin');
     }

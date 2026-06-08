@@ -858,6 +858,7 @@ function calculateEmployeeRanking(employees = [], records = [], monthPrefix = ge
     .forEach(r => {
       const item = byEmployee.get(String(r.employeeId));
       if (!item) return;
+      if (r.status === 'Absence') return;
 
       item.presentDays += 1;
       if (r.checkIn && r.checkOut) item.completeDays += 1;

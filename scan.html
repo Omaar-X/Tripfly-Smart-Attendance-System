@@ -452,14 +452,12 @@ async function launchCamera() {
   if (typeof Html5Qrcode === 'undefined') {
     showErr('QR scanner library লোড হয়নি। Internet check করে reload করুন।'); return;
   }
-  const needsReasonNow = (_mode === 'checkout' && (typeof isBeforeCheckoutCutoff === 'function' ? isBeforeCheckoutCutoff() : _earlyReasonRequired)) ||
-    (_mode === 'checkin' && (typeof isAfterLateCheckinCutoff === 'function' ? isAfterLateCheckinCutoff() : _earlyReasonRequired));
+  const needsReasonNow = _mode === 'checkout' &&
+    (typeof isBeforeCheckoutCutoff === 'function' ? isBeforeCheckoutCutoff() : _earlyReasonRequired);
   if (needsReasonNow) {
     const reason = getEarlyReasonInput();
     if (!reason) {
-      showErr(_mode === 'checkout'
-        ? '৬টার আগে Check-Out করতে হলে কারণ লিখতে হবে।'
-        : '10:15 AM এর পরে Check-In করতে হলে কারণ লিখতে হবে।');
+      showErr('৬টার আগে Check-Out করতে হলে কারণ লিখতে হবে।');
       document.getElementById('earlyReasonInput')?.focus();
       return;
     }
@@ -523,7 +521,19 @@ async function onScanSuccess(raw) {
     } else {
       const payload = { action: 'markAttendance', employeeId: CURRENT_EMPLOYEE.id, qrToken: token, deviceInfo: getDeviceInfo() };
       if (_gpsPos) { payload.latitude = _gpsPos.lat; payload.longitude = _gpsPos.lng; }
-      const reason = getEarlyReasonInput();
+      let reason = getEarlyReasonInput();
+      const lateNow = typeof isAfterLateCheckinCutoff === 'function' ? isAfterLateCheckinCutoff() : _earlyReasonRequired;
+      if (lateNow && !reason) {
+        const label = typeof formatTimeLabel === 'function'
+          ? formatTimeLabel(getAttendancePolicy().lateCutoffTime)
+          : '10:15 AM';
+        reason = (window.prompt(`${label} এর পরে Check-In করতে হলে কারণ লিখুন:`) || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 250);
+        const reasonInput = document.getElementById('earlyReasonInput');
+        if (reasonInput && reason) reasonInput.value = reason;
+      }
       if (reason) payload.lateCheckInReason = reason;
       result = await API.post(payload);
     }
@@ -537,9 +547,10 @@ async function onScanSuccess(raw) {
         _qrCode = null;
         _isBusy = false;
         proc.classList.remove('on');
-        setupStartScreen('checkout');
+        setupStartScreen(result.reasonType === 'early-checkout' ? 'checkout' : 'checkin');
         showState('Start');
         showErr(result.message || 'কারণ লিখতে হবে।');
+        document.getElementById('earlyReasonInput')?.focus();
         return;
       }
       throw new Error(result.message || 'Attendance mark করতে সমস্যা হয়েছে।');

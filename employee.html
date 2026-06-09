@@ -497,7 +497,7 @@
           if (!rec.checkIn) {
             bannerIcon.innerHTML = `<i class="fa-solid fa-clock"></i>`;
             bannerIcon.className = 'today-status-banner__icon today-status-banner__icon--pending';
-            bannerVal.textContent = rec.status || 'Absence';
+            bannerVal.textContent = 'Not Yet Marked';
             bannerTimes.innerHTML = `<span>QR scan করুন — Check-In হবে</span>`;
             alreadyDiv.classList.add('hidden');
             checkoutBtn.classList.add('hidden');

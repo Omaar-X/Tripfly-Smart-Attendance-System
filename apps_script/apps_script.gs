@@ -954,7 +954,7 @@ function markAttendance(body) {
     'Late Check-In Reason': lateReason,
     'Early Check-Out Reason': '',
   };
-  if (existing && existing.rowNumber && existing.status === 'Absence') {
+  if (existing && existing.rowNumber && !existing.checkIn) {
     setAttendanceRowValues(attSheet, existing.rowNumber, rowValues);
   } else {
     attSheet.appendRow(buildAttendanceRow(attSheet, rowValues));
@@ -1068,6 +1068,7 @@ function getAttendance(params) {
     if (filterEmp  && row[1].toString() !== filterEmp) continue;
 
     records.push({
+      rowNumber:     i + 1,
       id:           row[0],
       employeeId:   row[1],
       employeeName: row[2],
@@ -1081,8 +1082,13 @@ function getAttendance(params) {
     });
   }
 
-  // Return newest first, limited
-  records.reverse();
+  records.sort((a, b) => {
+    const dateOrder = String(b.date || '').localeCompare(String(a.date || ''));
+    if (dateOrder !== 0) return dateOrder;
+    const checkInOrder = (b.checkIn ? 1 : 0) - (a.checkIn ? 1 : 0);
+    if (checkInOrder !== 0) return checkInOrder;
+    return (b.rowNumber || 0) - (a.rowNumber || 0);
+  });
   return { success: true, data: records.slice(0, limit) };
 }
 
@@ -1095,11 +1101,12 @@ function getEmployeeAttendanceToday(employeeId, date) {
   ensureAttendanceSheetSchema(sheet, false);
   const data  = sheet.getDataRange().getValues();
   const headerMap = data.length ? buildHeaderMap(data[0]) : {};
+  let fallback = null;
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (row[1].toString() === employeeId.toString() && normalizeDateValue(row[3]) === date) {
-      return {
+      const record = {
         rowNumber: i + 1,
         id:      row[0],
         checkIn: row[4],
@@ -1109,9 +1116,11 @@ function getEmployeeAttendanceToday(employeeId, date) {
         lateCheckInReason: getRowValue(row, headerMap, 'Late Check-In Reason', 8),
         earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 9),
       };
+      if (record.checkIn) return record;
+      fallback = record;
     }
   }
-  return null;
+  return fallback;
 }
 
 // ─────────────────────────────────────────────

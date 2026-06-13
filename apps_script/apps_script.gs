@@ -320,13 +320,29 @@ function applyAttendanceSheetFormatting(sheet) {
   }
 }
 
+function formatAttendanceDataRow(sheet, rowNumber) {
+  if (!sheet || rowNumber <= 1) return;
+  const lastCol = sheet.getLastColumn();
+  const bg = (rowNumber % 2 === 0) ? '#ffffff' : '#dff7f9';
+  sheet.getRange(rowNumber, 1, 1, lastCol)
+    .setFontColor('#000000')
+    .setBackground(bg)
+    .setBorder(false, false, false, false, false, false)
+    .setVerticalAlignment('middle');
+
+  ['Date', 'Check-In Time', 'Check-Out Time'].forEach(header => {
+    const col = getHeaderColumnFromRow(sheet, header);
+    if (col) sheet.getRange(rowNumber, col).setHorizontalAlignment('center');
+  });
+}
+
 function getHeaderColumnFromRow(sheet, header) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const idx = headers.map(h => String(h || '').trim()).indexOf(header);
   return idx === -1 ? 0 : idx + 1;
 }
 
-function ensureDailyAttendanceRows(dateStr) {
+function ensureDailyAttendanceRows(dateStr, shouldFormat) {
   const date = dateStr || getTodayDate();
   const empSheet = getSheet(SHEET_EMPLOYEES);
   const attSheet = getSheet(SHEET_ATTENDANCE);
@@ -366,11 +382,11 @@ function ensureDailyAttendanceRows(dateStr) {
     added++;
   }
 
-  if (added > 0) applyAttendanceSheetFormatting(attSheet);
+  if (added > 0 && shouldFormat !== false) applyAttendanceSheetFormatting(attSheet);
   return added;
 }
 
-function fillMissingAttendanceDayValues(sheet) {
+function fillMissingAttendanceDayValues(sheet, dateFilter) {
   const attSheet = sheet || getSheet(SHEET_ATTENDANCE);
   if (attSheet.getLastRow() <= 1) return 0;
 
@@ -388,6 +404,7 @@ function fillMissingAttendanceDayValues(sheet) {
     if (dayVal) return;
 
     const dateStr = normalizeDateValue(row[dateCol - 1]);
+    if (dateFilter && dateStr !== dateFilter) return;
     const dayName = getDayNameFromDateString(dateStr);
     if (!dayName) return;
 
@@ -398,14 +415,15 @@ function fillMissingAttendanceDayValues(sheet) {
   return updated;
 }
 
-function maintainAttendanceSheetForDate(dateStr) {
+function maintainAttendanceSheetForDate(dateStr, options) {
   const date = dateStr || getTodayDate();
   const sheet = getSheet(SHEET_ATTENDANCE);
+  const shouldFormat = !options || options.format !== false;
 
-  ensureAttendanceSheetSchema(sheet, true);
-  const added = ensureDailyAttendanceRows(date);
-  const dayUpdates = fillMissingAttendanceDayValues(sheet);
-  applyAttendanceSheetFormatting(sheet);
+  ensureAttendanceSheetSchema(sheet, shouldFormat);
+  const added = ensureDailyAttendanceRows(date, shouldFormat);
+  const dayUpdates = fillMissingAttendanceDayValues(sheet, date);
+  if (shouldFormat) applyAttendanceSheetFormatting(sheet);
 
   return {
     date: date,
@@ -783,11 +801,11 @@ function getCurrentQR() {
   return { success: false, message: 'কোনো active QR নেই। Admin "Generate New QR" বাটন চাপুন।' };
 }
 
-function validateQRToken(token) {
+function validateQRToken(token, settingsOverride) {
   if (!token) return { valid: false, message: 'No token provided' };
 
   // ── Check if this is the static/printed office QR ──────
-  const settings    = getSettingsMap();
+  const settings    = settingsOverride || getSettingsMap();
   const staticToken  = settings['STATIC_QR_TOKEN']  || '';
   const staticExpiry = settings['STATIC_QR_EXPIRY'] || '';
 
@@ -869,14 +887,15 @@ function markAttendance(body) {
     return { success: false, message: 'Missing required fields' };
   }
 
+  const settings = getSettingsMap();
+
   // 1. Validate QR Token
-  const qrResult = validateQRToken(qrToken);
+  const qrResult = validateQRToken(qrToken, settings);
   if (!qrResult.valid) {
     return { success: false, message: qrResult.message };
   }
 
   // 2. GPS — optional, logged for audit, never blocks attendance
-  const settings = getSettingsMap();
   let gpsResult = { valid: true, message: 'GPS not provided', distance: 0 };
   const hasGps = latitude !== undefined && latitude !== null && latitude !== '' &&
                  longitude !== undefined && longitude !== null && longitude !== '';
@@ -894,7 +913,6 @@ function markAttendance(body) {
 
   // 3. Check for duplicate attendance today
   const today = getTodayDate();
-  maintainAttendanceSheetForDate(today);
   const existing = getEmployeeAttendanceToday(employeeId, today);
   if (existing && existing.checkIn) {
     return {
@@ -954,12 +972,15 @@ function markAttendance(body) {
     'Late Check-In Reason': lateReason,
     'Early Check-Out Reason': '',
   };
+  let touchedRowNumber = 0;
   if (existing && existing.rowNumber && !existing.checkIn) {
     setAttendanceRowValues(attSheet, existing.rowNumber, rowValues);
+    touchedRowNumber = existing.rowNumber;
   } else {
     attSheet.appendRow(buildAttendanceRow(attSheet, rowValues));
+    touchedRowNumber = attSheet.getLastRow();
   }
-  applyAttendanceSheetFormatting(attSheet);
+  formatAttendanceDataRow(attSheet, touchedRowNumber);
 
   // Technical data → Logs sheet (separate from main attendance view)
   try {
@@ -989,8 +1010,9 @@ function checkOut(body) {
   if (!employeeId) return { success: false, message: 'Employee ID required' };
 
   const sheet = getSheet(SHEET_ATTENDANCE);
-  maintainAttendanceSheetForDate(getTodayDate());
+  ensureAttendanceSheetSchema(sheet, false);
   const data  = sheet.getDataRange().getValues();
+  const headerMap = data.length ? buildHeaderMap(data[0]) : {};
   const today = getTodayDate();
   const now   = new Date();
   const timeStr = Utilities.formatDate(now, 'Asia/Dhaka', 'HH:mm:ss');
@@ -1010,26 +1032,25 @@ function checkOut(body) {
     };
   }
 
-  const dayCol = getAttendanceColumn(sheet, 'Day');
-  const reasonCol = getAttendanceColumn(sheet, 'Early Check-Out Reason');
-
   for (let i = data.length - 1; i >= 1; i--) {
-    if (data[i][1].toString() === employeeId.toString() && normalizeDateValue(data[i][3]) === today) {
-      if (!data[i][4]) {
+    const row = data[i];
+    const rowEmpId = getRowValue(row, headerMap, 'Employee ID', 1);
+    const rowDate = normalizeDateValue(getRowValue(row, headerMap, 'Date', 3));
+    if (rowEmpId.toString() === employeeId.toString() && rowDate === today) {
+      const checkIn = getRowValue(row, headerMap, 'Check-In Time', 4);
+      const checkOut = getRowValue(row, headerMap, 'Check-Out Time', 5);
+      if (!checkIn) {
         return { success: false, message: 'No check-in found for today' };
       }
-      if (data[i][5]) {
+      if (checkOut) {
         return { success: false, message: 'Already checked out today' };
       }
-      sheet.getRange(i + 1, 6).setValue(timeStr);
-      if (dayCol && !data[i][dayCol - 1]) {
-        const rowDate = normalizeDateValue(data[i][3]) || today;
-        sheet.getRange(i + 1, dayCol).setValue(getDayNameFromDateString(rowDate));
-      }
-      if (reasonCol && earlyReason) {
-        sheet.getRange(i + 1, reasonCol).setValue(earlyReason);
-      }
-      applyAttendanceSheetFormatting(sheet);
+      setAttendanceRowValues(sheet, i + 1, {
+        'Check-Out Time': timeStr,
+        'Day': getRowValue(row, headerMap, 'Day', 7) || getDayNameFromDateString(rowDate || today),
+        'Early Check-Out Reason': earlyReason,
+      });
+      formatAttendanceDataRow(sheet, i + 1);
       return {
         success:  true,
         message:  'Check-out recorded',
@@ -1047,10 +1068,10 @@ function checkOut(body) {
 // ─────────────────────────────────────────────
 function getAttendance(params) {
   const filterDate = params.date || '';
-  maintainAttendanceSheetForDate(filterDate || getTodayDate());
+  maintainAttendanceSheetForDate(filterDate || getTodayDate(), { format: false });
 
   const sheet = getSheet(SHEET_ATTENDANCE);
-  ensureAttendanceSheetSchema(sheet, true);
+  ensureAttendanceSheetSchema(sheet, false);
   const data  = sheet.getDataRange().getValues();
   const headerMap = data.length ? buildHeaderMap(data[0]) : {};
   const records = [];
@@ -1061,21 +1082,27 @@ function getAttendance(params) {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (!row[0]) continue;
-    const dateStr = normalizeDateValue(row[3]);
+    const id = getRowValue(row, headerMap, 'Attendance ID', 0);
+    const employeeId = getRowValue(row, headerMap, 'Employee ID', 1);
+    const employeeName = getRowValue(row, headerMap, 'Employee Name', 2);
+    const dateStr = normalizeDateValue(getRowValue(row, headerMap, 'Date', 3));
+    const checkIn = getRowValue(row, headerMap, 'Check-In Time', 4);
+    const checkOut = getRowValue(row, headerMap, 'Check-Out Time', 5);
+    const status = getRowValue(row, headerMap, 'Status', 6);
+    if (!id) continue;
     const day = getRowValue(row, headerMap, 'Day', 7) || getDayNameFromDateString(dateStr);
     if (filterDate && dateStr !== filterDate) continue;
-    if (filterEmp  && row[1].toString() !== filterEmp) continue;
+    if (filterEmp  && employeeId.toString() !== filterEmp) continue;
 
     records.push({
       rowNumber:     i + 1,
-      id:           row[0],
-      employeeId:   row[1],
-      employeeName: row[2],
+      id:           id,
+      employeeId:   employeeId,
+      employeeName: employeeName,
       date:         dateStr,
-      checkIn:      row[4],
-      checkOut:     row[5],
-      status:       row[6],
+      checkIn:      checkIn,
+      checkOut:     checkOut,
+      status:       status,
       day:          day,
       lateCheckInReason:   getRowValue(row, headerMap, 'Late Check-In Reason', 8),
       earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 9),
@@ -1105,13 +1132,15 @@ function getEmployeeAttendanceToday(employeeId, date) {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (row[1].toString() === employeeId.toString() && normalizeDateValue(row[3]) === date) {
+    const rowEmpId = getRowValue(row, headerMap, 'Employee ID', 1);
+    const rowDate = normalizeDateValue(getRowValue(row, headerMap, 'Date', 3));
+    if (rowEmpId.toString() === employeeId.toString() && rowDate === date) {
       const record = {
         rowNumber: i + 1,
-        id:      row[0],
-        checkIn: row[4],
-        checkOut:row[5],
-        status:  row[6],
+        id:      getRowValue(row, headerMap, 'Attendance ID', 0),
+        checkIn: getRowValue(row, headerMap, 'Check-In Time', 4),
+        checkOut:getRowValue(row, headerMap, 'Check-Out Time', 5),
+        status:  getRowValue(row, headerMap, 'Status', 6),
         day:     getRowValue(row, headerMap, 'Day', 7),
         lateCheckInReason: getRowValue(row, headerMap, 'Late Check-In Reason', 8),
         earlyCheckoutReason: getRowValue(row, headerMap, 'Early Check-Out Reason', 9),
@@ -1127,11 +1156,12 @@ function getEmployeeAttendanceToday(employeeId, date) {
 // DASHBOARD STATISTICS
 // ─────────────────────────────────────────────
 function getDashboardStats() {
-  maintainAttendanceSheetForDate(getTodayDate());
+  maintainAttendanceSheetForDate(getTodayDate(), { format: false });
   const empSheet  = getSheet(SHEET_EMPLOYEES);
   const attSheet  = getSheet(SHEET_ATTENDANCE);
   const empData   = empSheet.getDataRange().getValues();
   const attData   = attSheet.getDataRange().getValues();
+  const attHeaderMap = attData.length ? buildHeaderMap(attData[0]) : {};
   const today     = getTodayDate();
 
   let totalEmployees = 0;
@@ -1147,10 +1177,12 @@ function getDashboardStats() {
   // Count today's attendance
   const todayEmpIds = new Set();
   for (let i = 1; i < attData.length; i++) {
-    if (normalizeDateValue(attData[i][3]) === today) {
-      todayEmpIds.add(attData[i][1].toString());
-      if (attData[i][6] === 'Late') lateToday++;
-      else if (attData[i][6] === 'Present') presentToday++;
+    const row = attData[i];
+    if (normalizeDateValue(getRowValue(row, attHeaderMap, 'Date', 3)) === today) {
+      todayEmpIds.add(getRowValue(row, attHeaderMap, 'Employee ID', 1).toString());
+      const status = getRowValue(row, attHeaderMap, 'Status', 6);
+      if (status === 'Late') lateToday++;
+      else if (status === 'Present') presentToday++;
     }
   }
 
@@ -1174,6 +1206,7 @@ function getDashboardStats() {
 function getMonthlyStats(params) {
   const sheet  = getSheet(SHEET_ATTENDANCE);
   const data   = sheet.getDataRange().getValues();
+  const headerMap = data.length ? buildHeaderMap(data[0]) : {};
   const now    = new Date();
   const year   = parseInt(params.year  || now.getFullYear());
   const month  = parseInt(params.month || (now.getMonth() + 1));
@@ -1186,13 +1219,14 @@ function getMonthlyStats(params) {
 
   for (let i = 1; i < data.length; i++) {
     const row  = data[i];
-    const date = normalizeDateValue(row[3]);
+    const date = normalizeDateValue(getRowValue(row, headerMap, 'Date', 3));
     if (!date.startsWith(prefix)) continue;
 
     if (!dailyStats[date]) {
       dailyStats[date] = { present: 0, late: 0, absent: 0 };
     }
-    if (row[6] === 'Late') dailyStats[date].late++;
+    const status = getRowValue(row, headerMap, 'Status', 6);
+    if (status === 'Late') dailyStats[date].late++;
     else dailyStats[date].present++;
   }
 

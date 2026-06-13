@@ -84,7 +84,7 @@ const API = (() => {
       return { success: false, message: 'API URL not configured. Deploy Apps Script, then paste the Web App /exec URL into assets/js/app.js.' };
     }
     // Automatically add secret API key to every GET request
-    const securedParams = { ...params, apiKey: API_SECRET };
+    const securedParams = { ...params, apiKey: API_SECRET, cacheBust: Date.now().toString() };
     const qs  = _buildQueryString(securedParams);
     const url = qs ? `${APPS_SCRIPT_URL}?${qs}` : APPS_SCRIPT_URL;
     try {

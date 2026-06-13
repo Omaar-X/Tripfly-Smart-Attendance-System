@@ -989,6 +989,17 @@
       window.location.href = 'scan.html';
     }
 
+    function refreshEmployeeAttendanceViews() {
+      if (document.hidden) return;
+      checkTodayStatus();
+      const activeTab = document.querySelector('.emp-tab.active')?.dataset.tab || 'scanner';
+      if (activeTab === 'history') {
+        loadHistory();
+      } else if (activeTab === 'profile') {
+        loadProfileMonthStats();
+      }
+    }
+
     // ── Logout ────────────────────────────────
     function empLogout() {
       sessionStorage.removeItem('employeeAuth');
@@ -1010,6 +1021,7 @@
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', updateLeaveDraftPreview);
       });
+      setInterval(refreshEmployeeAttendanceViews, 30000);
 
     });
   </script>

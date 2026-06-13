@@ -1023,6 +1023,18 @@
       setTimeout(() => icon.classList.remove('fa-spin'), 1000);
     }
 
+    function refreshLiveAttendanceSection() {
+      if (document.hidden) return;
+      const active = document.querySelector('.sidebar__link.active');
+      const section = active ? active.dataset.section : 'dashboard';
+      if (section === 'dashboard') {
+        loadDashboard();
+      } else if (section === 'attendance') {
+        applyAttendanceFilter();
+      }
+    }
+    setInterval(refreshLiveAttendanceSection, 30000);
+
     // ── Mobile sidebar ────────────────────────
     function openSidebar() {
       document.getElementById('sidebar').classList.add('open');

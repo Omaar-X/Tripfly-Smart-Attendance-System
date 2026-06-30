@@ -500,6 +500,10 @@
     // ── Generate Report ───────────────────────
     async function generateReport() {
       const type = currentReportType;
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
 
       // Build filter params
       let params = { action: 'getAttendance', limit: '5000' };
@@ -525,7 +529,7 @@
         const year  = document.getElementById('filterMonthYear').value;
         params._monthPrefix = `${year}-${month}`;
         document.getElementById('printReportTitle').textContent =
-          `Monthly Report — ${document.getElementById('filterMonthMonth').options[document.getElementById('filterMonthMonth').selectedIndex].text} ${year}`;
+          `Monthly Report — ${monthNames[parseInt(month, 10) - 1]} ${year}`;
 
       } else if (type === 'custom') {
         params._customStart = document.getElementById('filterCustomStart').value;
@@ -847,6 +851,8 @@
       document.getElementById('filterWeekDate').value     = today;
       document.getElementById('filterMonthYear').value    = now.getFullYear();
       document.getElementById('filterMonthMonth').value   = now.getMonth() + 1;
+      document.getElementById('printReportTitle').textContent =
+        `Monthly Summary — ${now.toLocaleDateString('en-BD', { month: 'long', year: 'numeric' })}`;
       document.getElementById('filterCustomStart').value  = today;
       document.getElementById('filterCustomEnd').value    = today;
       document.getElementById('filterEmpMonth').value     = now.getMonth() + 1;
